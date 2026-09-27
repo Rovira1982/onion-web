@@ -2,9 +2,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
+import ColorVariantPicker from "@/components/ColorVariantPicker";
 import {
   getProductBySlug,
   getProductsByCategorySlug,
+  getProductVariants,
   describeEngravingTechnique,
 } from "@/lib/products";
 
@@ -30,6 +32,7 @@ export default async function ProductoPage({
   const related = getProductsByCategorySlug(categorySlug)
     .filter((p) => p.slug !== product.slug)
     .slice(0, 4);
+  const variants = getProductVariants(product.rootmodel);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -72,6 +75,12 @@ export default async function ProductoPage({
 
           <p className="mt-6 text-ink-soft">{product.description}</p>
 
+          {variants.length > 1 && (
+            <div className="mt-5 max-w-xs">
+              <ColorVariantPicker variants={variants} currentSlug={product.slug} />
+            </div>
+          )}
+
           <dl className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-border p-5 text-sm">
             {product.material && (
               <div>
@@ -79,7 +88,7 @@ export default async function ProductoPage({
                 <dd className="mt-1 text-ink">{product.material}</dd>
               </div>
             )}
-            {product.color && product.color.trim() && (
+            {variants.length <= 1 && product.color && product.color.trim() && (
               <div>
                 <dt className="font-display font-semibold text-ink-soft">Color</dt>
                 <dd className="mt-1 text-ink">{product.color}</dd>

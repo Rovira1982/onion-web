@@ -8,7 +8,7 @@ import Papa from "papaparse";
 // same columns as the Cifra Catalog API: https://api.cifrashop.com/products/:TOKEN/:LANG).
 // To go live, replace loadRawRows() below with a fetch to that endpoint using a
 // real CIFRA_API_TOKEN — the row shape is the same, so nothing downstream changes.
-type CifraCsvRow = {
+export type CifraCsvRow = {
   Modelo: string;
   "Modelo raíz": string;
   Nombre: string;
@@ -27,6 +27,7 @@ type CifraCsvRow = {
 export type Product = {
   slug: string;
   model: string;
+  rootmodel: string;
   name: string;
   description: string;
   category: string;
@@ -95,6 +96,7 @@ function fromCsvRow(row: CifraCsvRow): Product {
   return {
     slug: slugify(`${name}-${row.Modelo}`),
     model: row.Modelo,
+    rootmodel: row["Modelo raíz"]?.trim() || row.Modelo,
     name,
     description: stripHtml(row.Descripción) || `${name}, personalizable con tu logo.`,
     category,
@@ -130,12 +132,41 @@ export function getProducts(): Product[] {
   return cache;
 }
 
-export function getInStockProducts(): Product[] {
+export function getAllInStockRows(): Product[] {
   return getProducts().filter((p) => p.stock > 0);
 }
 
+// Many rows in the Cifra export are the same product in a different color
+// (same "Modelo raíz", different "Modelo"/Color). Listings show one card per
+// rootmodel — the variant with the most stock — instead of one per color.
+let groupedCache: Product[] | null = null;
+
+export function getInStockProducts(): Product[] {
+  if (!groupedCache) {
+    const byRoot = new Map<string, Product[]>();
+    for (const p of getAllInStockRows()) {
+      const list = byRoot.get(p.rootmodel);
+      if (list) list.push(p);
+      else byRoot.set(p.rootmodel, [p]);
+    }
+    groupedCache = Array.from(byRoot.values()).map(
+      (variants) => variants.slice().sort((a, b) => b.stock - a.stock)[0]
+    );
+  }
+  return groupedCache;
+}
+
+// All color/size variants that share a rootmodel, sorted by stock desc.
+// Includes out-of-stock variants (shown as unavailable) so the selector
+// reflects the full range Cifra offers, not just what's currently in stock.
+export function getProductVariants(rootmodel: string): Product[] {
+  return getProducts()
+    .filter((p) => p.rootmodel === rootmodel)
+    .sort((a, b) => b.stock - a.stock);
+}
+
 export function getProductBySlug(slug: string): Product | undefined {
-  return getProducts().find((p) => p.slug === slug);
+  return getInStockProducts().find((p) => p.slug === slug) ?? getProducts().find((p) => p.slug === slug);
 }
 
 export function getCategories(): { name: string; slug: string; count: number }[] {

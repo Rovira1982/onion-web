@@ -46,3 +46,6 @@ next-env.d.ts
 AGENTS.md
 CLAUDE.md
 skills-lock.json
+
+# duplicate of data/cifra-products.csv, not the source of truth
+/productes/
