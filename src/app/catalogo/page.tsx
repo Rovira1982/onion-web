@@ -32,6 +32,34 @@ export default async function CatalogoPage({
 
   const activeCategory = categories.find((c) => c.slug === categoria);
 
+  const categoryList = (
+    <ul className="mt-4 max-h-[32rem] space-y-1 overflow-y-auto pr-2">
+      <li>
+        <Link
+          href="/catalogo"
+          className={`block rounded-lg px-3 py-2 text-sm font-medium ${
+            !categoria ? "bg-brand-light text-brand" : "text-ink-soft hover:bg-muted"
+          }`}
+        >
+          Todas
+        </Link>
+      </li>
+      {categories.map((c) => (
+        <li key={c.slug}>
+          <Link
+            href={`/catalogo?categoria=${c.slug}`}
+            className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
+              categoria === c.slug ? "bg-brand-light text-brand" : "text-ink-soft hover:bg-muted"
+            }`}
+          >
+            <span className="line-clamp-1">{c.name}</span>
+            <span className="shrink-0 text-xs text-ink-soft">{c.count}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <nav className="text-xs text-ink-soft" aria-label="Migas de pan">
@@ -74,37 +102,23 @@ export default async function CatalogoPage({
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[240px_1fr]">
-        <aside>
+        {/* Mobile: collapsible, closed once a category is picked so it doesn't push products down */}
+        <details className="lg:hidden" open={!categoria}>
+          <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl border border-border px-4 py-3 font-display text-sm font-bold text-ink [&::-webkit-details-marker]:hidden">
+            <span>{activeCategory ? activeCategory.name : "Todas las categorías"}</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" stroke="#1A1310" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </summary>
+          {categoryList}
+        </details>
+
+        {/* Desktop: always visible */}
+        <aside className="hidden lg:block">
           <h2 className="font-display text-sm font-bold uppercase tracking-wide text-ink-soft">
             Categorías
           </h2>
-          <ul className="mt-4 max-h-[32rem] space-y-1 overflow-y-auto pr-2">
-            <li>
-              <Link
-                href="/catalogo"
-                className={`block rounded-lg px-3 py-2 text-sm font-medium ${
-                  !categoria ? "bg-brand-light text-brand" : "text-ink-soft hover:bg-muted"
-                }`}
-              >
-                Todas
-              </Link>
-            </li>
-            {categories.map((c) => (
-              <li key={c.slug}>
-                <Link
-                  href={`/catalogo?categoria=${c.slug}`}
-                  className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-                    categoria === c.slug
-                      ? "bg-brand-light text-brand"
-                      : "text-ink-soft hover:bg-muted"
-                  }`}
-                >
-                  <span className="line-clamp-1">{c.name}</span>
-                  <span className="shrink-0 text-xs text-ink-soft">{c.count}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {categoryList}
         </aside>
 
         <div>

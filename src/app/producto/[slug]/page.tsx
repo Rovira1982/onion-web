@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
-import ColorVariantPicker from "@/components/ColorVariantPicker";
+import VariantPicker from "@/components/VariantPicker";
 import {
   getProductBySlug,
   getProductsByCategorySlug,
@@ -76,8 +76,8 @@ export default async function ProductoPage({
           <p className="mt-6 text-ink-soft">{product.description}</p>
 
           {variants.length > 1 && (
-            <div className="mt-5 max-w-xs">
-              <ColorVariantPicker variants={variants} currentSlug={product.slug} />
+            <div className="mt-5">
+              <VariantPicker variants={variants} currentSlug={product.slug} />
             </div>
           )}
 
