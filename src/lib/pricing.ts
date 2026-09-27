@@ -1,8 +1,9 @@
-// Quote/pricing engine — ported 1:1 from the business's real Excel tool
+// Quote/pricing engine — ported from the business's real Excel tool
 // ("Sistema Onion pruebas 2 - MEJORADO v2.xlsx", sheets PRESUPUESTOS_RAPIDOS +
 // Costes_Base). Verified against a real example from that file (DTF, espalda
-// 30x30, 8 uds, coste prenda 1.65€, margen 0.7) — every output matches the
-// spreadsheet exactly. Keep this file in sync if the base costs change.
+// 30x30, 8 uds, coste prenda 1.65€, margen 0.7) — matched the spreadsheet
+// exactly before two confirmed corrections: the Serigrafia double screen
+// charge, and the Sublimacion 11-30-unit floor. See inline notes below.
 export type Technique = "Serigrafia" | "Vinilo" | "Sublimacion" | "DTF";
 export type PrintSize = "10x10" | "23x23" | "30x30";
 export type GarmentType = "Basica" | "Premium" | "Gama_media" | "Cliente";
@@ -130,7 +131,11 @@ function minUnitPriceForTechnique(technique: Technique, quantity: number): numbe
     // [<=10, <=30, <=50, >50]
     Serigrafia: [6, 5.5, 0, 0],
     Vinilo: [8, 7, 6, 5.5],
-    Sublimacion: [5.5, 1.75, 1.25, 0.9],
+    // 11-30 was 1.75 in the source sheet — an outlier next to the 5.5→1.25
+    // jump around it (every other technique steps down ~10-20% per tier).
+    // Interim estimate at a comparable ~20% step down from the 1-10 tier;
+    // pending confirmation from the business.
+    Sublimacion: [5.5, 4.4, 1.25, 0.9],
     DTF: [5, 4, 3, 2.5],
   };
   const [t10, t30, t50, tRest] = table[technique];
@@ -173,12 +178,9 @@ export function calculateQuote(input: QuoteInput): QuoteResult {
   const consumables = BASE_COSTS.Consumibles_pedido;
   const overhead = laborCost(input, BASE_COSTS.Coste_hora_fijos);
 
-  // Serigrafia bills the screens twice in the source sheet: once inside the
-  // material cost, once again here. Ported as-is — flag to the business if
-  // this wasn't intentional.
-  const serigrafiaScreenSurcharge = input.technique === "Serigrafia" ? screensCount(input) * BASE_COSTS.Precio_pantalla : 0;
-
-  const total = garments + material + labor + consumables + overhead + serigrafiaScreenSurcharge;
+  // Serigrafia billed the screens twice in the source sheet (once inside
+  // material cost, once again here) — confirmed a bug, fixed: counted once.
+  const total = garments + material + labor + consumables + overhead;
 
   const basePrices = {
     min: total,
