@@ -136,72 +136,67 @@ export function getAllInStockRows(): Product[] {
   return getProducts().filter((p) => p.stock > 0);
 }
 
-// Picks the one row to represent a rootmodel group in listings: the most
-// common product name in the group (guards against the odd mis-typed row,
-// e.g. a name that's just "CAMISETA" while its siblings have the full name),
-// then the highest-stock row among those.
-function pickRepresentative(variants: Product[]): Product {
-  const nameCounts = new Map<string, number>();
-  for (const v of variants) nameCounts.set(v.name, (nameCounts.get(v.name) ?? 0) + 1);
-  const maxCount = Math.max(...nameCounts.values());
-  const commonNames = new Set(
-    Array.from(nameCounts.entries())
-      .filter(([, c]) => c === maxCount)
-      .map(([n]) => n)
-  );
-  const pool = variants.filter((v) => commonNames.has(v.name));
-  return (pool.length ? pool : variants).slice().sort((a, b) => b.stock - a.stock)[0];
+// Cifra assigns a *different* "Modelo raíz" per color (and yet another one
+// for 3XL / child sizes within the same color) — e.g. the same "CAMISETA DE
+// ALGODÓN 160G NATUR" is rootmodel 10333 in blue, 10334 in black, and
+// 10336-3XL for blue in 3XL. Grouping by rootmodel doesn't merge those, so
+// listings group by (category, name) instead — the one thing that's
+// consistent across every color/size row of the same real product.
+function groupKey(p: Product) {
+  return `${p.category}||${p.name}`;
 }
 
-// Many rows in the Cifra export are the same product in a different
-// color/size (same "Modelo raíz", different "Modelo"). Listings show one
-// card per rootmodel instead of one per color/size combination.
 let groupedCache: Product[] | null = null;
 
 export function getInStockProducts(): Product[] {
   if (!groupedCache) {
-    const byRoot = new Map<string, Product[]>();
+    const byKey = new Map<string, Product[]>();
     for (const p of getAllInStockRows()) {
-      const list = byRoot.get(p.rootmodel);
+      const key = groupKey(p);
+      const list = byKey.get(key);
       if (list) list.push(p);
-      else byRoot.set(p.rootmodel, [p]);
+      else byKey.set(key, [p]);
     }
-    groupedCache = Array.from(byRoot.values()).map(pickRepresentative);
+    groupedCache = Array.from(byKey.values()).map(
+      (variants) => variants.slice().sort((a, b) => b.stock - a.stock)[0]
+    );
   }
   return groupedCache;
 }
 
 // Cifra doesn't give size as its own column — it's folded into "Modelo" as
-// {rootmodel}-{SIZE}-{COLOR} (or {rootmodel}-{COLOR} when there's no size).
-// Parsed from the model code itself so it's never wrong for rows the CSV's
-// own "Color" column leaves blank.
-const SIZE_TOKENS = new Set(["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"]);
+// {baseId}-{SIZE}-{COLOR} (or {baseId}-{COLOR} when there's no size), where
+// baseId is the leading numeric code (Modelo's own "Modelo raíz" isn't used
+// here since it's inconsistent — it sometimes bundles the size into the
+// root, e.g. "10333-2-3" for the child variant of product 10333).
+const SIZE_TOKENS = new Set(["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "2XL", "3XL", "4XL", "5XL"]);
 
-function parseVariantSuffix(rootmodel: string, modelo: string): { size: string; colorLabel: string } {
-  const prefix = `${rootmodel}-`;
-  const suffix = modelo.startsWith(prefix) ? modelo.slice(prefix.length) : modelo;
-  const tokens = suffix.split("-").filter(Boolean);
+function parseVariantSuffix(modelo: string): { size: string; colorLabel: string } {
+  const tokens = modelo.split("-").filter(Boolean);
+  const rest0 = tokens.length > 1 ? tokens.slice(1) : tokens; // drop leading numeric product code
   let size = "";
-  let rest = tokens;
-  if (tokens.length >= 2 && /^\d+$/.test(tokens[0]) && /^\d+$/.test(tokens[1])) {
-    size = `${tokens[0]}-${tokens[1]}`; // e.g. child sizing "2-3", "4-6"
-    rest = tokens.slice(2);
-  } else if (tokens.length >= 1 && SIZE_TOKENS.has(tokens[0].toUpperCase())) {
-    size = tokens[0].toUpperCase();
-    rest = tokens.slice(1);
+  let rest = rest0;
+  if (rest0.length >= 2 && /^\d+$/.test(rest0[0]) && /^\d+$/.test(rest0[1])) {
+    size = `${rest0[0]}-${rest0[1]}`; // e.g. child sizing "2-3", "4-6"
+    rest = rest0.slice(2);
+  } else if (rest0.length >= 1 && SIZE_TOKENS.has(rest0[0].toUpperCase())) {
+    size = rest0[0].toUpperCase();
+    rest = rest0.slice(1);
   }
   return { size, colorLabel: rest.join("-") };
 }
 
 export type ProductVariant = Product & { size: string; colorLabel: string };
 
-// All color/size variants that share a rootmodel, sorted by stock desc.
-// Includes out-of-stock variants (shown as unavailable) so the selector
-// reflects the full range Cifra offers, not just what's currently in stock.
-export function getProductVariants(rootmodel: string): ProductVariant[] {
+// All color/size variants of the same real product (same category + name),
+// sorted by stock desc. Includes out-of-stock variants (shown as
+// unavailable) so the selector reflects everything Cifra offers, not just
+// what's currently in stock.
+export function getProductVariants(product: Product): ProductVariant[] {
+  const key = groupKey(product);
   return getProducts()
-    .filter((p) => p.rootmodel === rootmodel)
-    .map((p) => ({ ...p, ...parseVariantSuffix(rootmodel, p.model) }))
+    .filter((p) => groupKey(p) === key)
+    .map((p) => ({ ...p, ...parseVariantSuffix(p.model) }))
     .sort((a, b) => b.stock - a.stock);
 }
 

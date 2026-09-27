@@ -32,7 +32,7 @@ export default async function ProductoPage({
   const related = getProductsByCategorySlug(categorySlug)
     .filter((p) => p.slug !== product.slug)
     .slice(0, 4);
-  const variants = getProductVariants(product.rootmodel);
+  const variants = getProductVariants(product);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
