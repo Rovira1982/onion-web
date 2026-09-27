@@ -1,0 +1,2669 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "WSCLIENTS - V1",
+    "version": "v1"
+  },
+  "paths": {
+    "/api/v1/doc/{doctype}": {
+      "get": {
+        "tags": [
+          "Doc"
+        ],
+        "summary": "Get all docs.",
+        "description": "Output format:\r\n  - JSON: (Default)\r\n  - XML: Header Accept 'application/xml'\r\n  - CSV: Header Accept 'text/plain'",
+        "parameters": [
+          {
+            "name": "doctype",
+            "in": "path",
+            "description": "<b>*Required.<br></br> Values:</b> order, deliverynote, tracking, invoice, payment, expiration, report347, packinglist",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "datefrom",
+            "in": "query",
+            "description": "<b>*Optional.<br></br> Format:</b> yyyyMMdd <br></br><b> Example:</b> 20240522",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateto",
+            "in": "query",
+            "description": "<b>*Optional.<br></br> Format:</b> yyyyMMdd <br></br><b> Example:</b> 20240523",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeresponse",
+            "in": "header",
+            "description": "<b>We can use 'typeresponse' or 'Accept' as header.<br></br> Values:</b>application/json, application/xml, text/csv, text/plain</param>",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "application/json"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/doc/{doctype}/{docnum}": {
+      "get": {
+        "tags": [
+          "Doc"
+        ],
+        "summary": "Get a doc",
+        "description": "Output format:\r\n  - JSON: (Default)\r\n  - XML: Header Accept 'application/xml'\r\n  - CSV: Header Accept 'text/plain'",
+        "parameters": [
+          {
+            "name": "doctype",
+            "in": "path",
+            "description": "<b>*Required.<br></br> Values:</b> order, deliverynote, tracking, invoice, payment, expiration, report347, packinglist",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "docnum",
+            "in": "path",
+            "description": "<b>*Required.</b> DocNum (Year for 347report)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeresponse",
+            "in": "header",
+            "description": "<b>We can use 'typeresponse' or 'Accept' as header.<br></br> Values:</b>application/json, application/xml, text/csv, text/plain</param>",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "application/json"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/doc/{doctype}/{docnum}/pdf": {
+      "get": {
+        "tags": [
+          "Doc"
+        ],
+        "summary": "Get doc PDF",
+        "parameters": [
+          {
+            "name": "doctype",
+            "in": "path",
+            "description": "<b>*Required.<br></br> Values:</b> order, deliverynote, invoice, payment, packinglist, proforma",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "docnum",
+            "in": "path",
+            "description": "<b>*Required.</b>",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>*Required.<br></br> Example:</b> es-ES",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taric",
+            "in": "query",
+            "description": "<b>*Optional. </b>Group by taric code.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/doc/navmap": {
+      "post": {
+        "tags": [
+          "Doc"
+        ],
+        "summary": "Get the navigation map of the docs.",
+        "description": "",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "weborders": {
+                    "type": "string"
+                  },
+                  "orders": {
+                    "type": "string"
+                  },
+                  "deliverynotes": {
+                    "type": "string"
+                  },
+                  "invoices": {
+                    "type": "string"
+                  }
+                }
+              },
+              "encoding": {
+                "weborders": {
+                  "style": "form"
+                },
+                "orders": {
+                  "style": "form"
+                },
+                "deliverynotes": {
+                  "style": "form"
+                },
+                "invoices": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/doc/dnfile": {
+      "get": {
+        "tags": [
+          "Doc"
+        ],
+        "summary": "DnFile. Get a list of delivery notes for the specified day.",
+        "parameters": [
+          {
+            "name": "docdate",
+            "in": "query",
+            "description": "Doc Date",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.1/doc/{doctype}": {
+      "get": {
+        "tags": [
+          "Doc"
+        ],
+        "summary": "Get all docs.",
+        "description": "Output format:\r\n  - JSON: (Default)\r\n  - XML: Header Accept 'application/xml'\r\n  - CSV: Header Accept 'text/plain'",
+        "parameters": [
+          {
+            "name": "doctype",
+            "in": "path",
+            "description": "<b>*Required.<br></br> Values:</b> order, deliverynote, tracking, invoice, payment, expiration, report347",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "datefrom",
+            "in": "query",
+            "description": "<b>*Optional.<br></br> Format:</b> yyyyMMdd <br></br><b> Example:</b> 20240522",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateto",
+            "in": "query",
+            "description": "<b>*Optional.<br></br> Format:</b> yyyyMMdd <br></br><b> Example:</b> 20240523",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeresponse",
+            "in": "header",
+            "description": "<b>We can use 'typeresponse' or 'Accept' as header.<br></br> Values:</b>application/json, application/xml, text/csv, text/plain</param>",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "application/json"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.1/doc/{doctype}/{docnum}": {
+      "get": {
+        "tags": [
+          "Doc"
+        ],
+        "summary": "Get a doc",
+        "description": "Output format:\r\n  - JSON: (Default)\r\n  - XML: Header Accept 'application/xml'\r\n  - CSV: Header Accept 'text/plain'",
+        "parameters": [
+          {
+            "name": "doctype",
+            "in": "path",
+            "description": "<b>*Required.<br></br> Values:</b> order, deliverynote, tracking, invoice, payment, expiration, report347",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "docnum",
+            "in": "path",
+            "description": "<b>*Required.</b> DocNum (Year for 347report)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeresponse",
+            "in": "header",
+            "description": "<b>We can use 'typeresponse' or 'Accept' as header.<br></br> Values:</b>application/json, application/xml, text/csv, text/plain</param>",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "application/json"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/get": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Get info of an item.",
+        "parameters": [
+          {
+            "name": "itemcode",
+            "in": "query",
+            "description": "<b>*Required.</b> Item code.<br></br><b>Example:</b> CA64240402",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>*Required.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/getcatalog": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Get catalog info.",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>*Required.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "description": "<b>*Required.</b>",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "<b>Optional.<br></br> Values:</b> Category code",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/getmodelsidlist": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Get models id list.",
+        "parameters": [
+          {
+            "name": "brand",
+            "in": "query",
+            "description": "<b>*Required.</b>",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/pricelist": {
+      "post": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Get item's pricelist.",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "brand": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "size": {
+                    "type": "string"
+                  },
+                  "includeoutlet": {
+                    "type": "integer",
+                    "format": "int32",
+                    "default": 0
+                  }
+                }
+              },
+              "encoding": {
+                "brand": {
+                  "style": "form"
+                },
+                "category": {
+                  "style": "form"
+                },
+                "model": {
+                  "style": "form"
+                },
+                "color": {
+                  "style": "form"
+                },
+                "size": {
+                  "style": "form"
+                },
+                "includeoutlet": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/jobsheet": {
+      "post": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Gets the list of the Models's Jobsheets.",
+        "description": "Params:\r\n- lang: <b>*Required. Format:</b> xx-XX. <b>Example:</b> es-ES<br></br>\r\n- brand: <b>*Required</b>\r\n- models: <b>*Optional.</b> Model code list. <b>Example:</b> 6502,0407",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lang": {
+                    "type": "string"
+                  },
+                  "brand": {
+                    "type": "string"
+                  },
+                  "models": {
+                    "type": "string"
+                  }
+                }
+              },
+              "encoding": {
+                "lang": {
+                  "style": "form"
+                },
+                "brand": {
+                  "style": "form"
+                },
+                "models": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/categories": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Get list of categories",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>\r\n  <span style=\"color:red;\">*Required.</span> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "description": "<b>*Required.</b>",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryDTO"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryDTO"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryDTO"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryDTO"
+                  }
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryDTO"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/categories/tree": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Get tree of categories",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>\r\n  <span style=\"color:red;\">*Required.</span> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "description": "<b>*Required.</b>",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "<b>\r\n  <span style=\"color:red;\">*Optional.</span>\r\n</b> Category id tree start. Empty for whole category tree.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryTree"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryTree"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryTree"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryTree"
+                  }
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryTree"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/categories/get": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Get a category info",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>\r\n  <span style=\"color:red;\">*Required.</span> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "<b>\r\n  <span style=\"color:red;\">*Required.</span>\r\n</b> Category id.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/printoptions": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Print Options.",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>*Required.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "modelList",
+            "in": "query",
+            "description": "<b>Optional.<br></br> Values:</b> 6690,6424,CA6554",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "description": "<b>\r\n  <span>Optional.</span> Values:</b> roly, stamina",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/printprices": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Print Prices.",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>Optional.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string",
+              "default": "en-GB"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesosPrices"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesosPrices"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesosPrices"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/printtechniques": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Print Techniques.",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>Optional.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string",
+              "default": "en-GB"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesosPrices"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesosPrices"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesosPrices"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/item/printhandlings": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Print Handlings.",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "Idioma. Formato: xx-XX",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "modelList",
+            "in": "query",
+            "description": "<b>\r\n  <span>Optional. Lista de modelos separados por coma ',' </span>\r\n</b>",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonHandlings"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonHandlings"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonHandlings"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.1/item/get": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Get info of an item.",
+        "parameters": [
+          {
+            "name": "itemcode",
+            "in": "query",
+            "description": "<b>*Required.</b> Item code.<br></br><b>Example:</b> CA64240402",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>*Required.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.1/item/getcatalog": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Get catalog info.",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>*Required.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "description": "<b>*Required.</b>",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "<b>Optional.<br></br> Values:</b> Category code",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.1/item/printoptions": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Print Options.",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>*Required.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "modelList",
+            "in": "query",
+            "description": "<b>Optional.<br></br> Values:</b> 6690,6424,CA6554",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.2/item/printoptions": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Print Options.",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>*Required.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "modelList",
+            "in": "query",
+            "description": "<b>Optional.<br></br> Values:</b> 6690,6424,CA6554",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.3/item/printoptions": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "summary": "Print Options.",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>*Required.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "modelList",
+            "in": "query",
+            "description": "<b>Optional.<br></br> Values:</b> 6690,6424,CA6554",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonReprocesos"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/login": {
+      "post": {
+        "tags": [
+          "Login"
+        ],
+        "summary": "Get login token",
+        "description": "Params:\r\n- username: <b>*Required</b> Extranet user. Example: user@domain.com\r\n- password: <b>*Required</b> Extranet password. Example: My_Web_Password\r\n- scope: (Optional) Scope, only for OK Textil clients. Value: OKTXT",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "string",
+                    "default": ""
+                  }
+                }
+              },
+              "encoding": {
+                "username": {
+                  "style": "form"
+                },
+                "password": {
+                  "style": "form"
+                },
+                "scope": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.1/login": {
+      "post": {
+        "tags": [
+          "Login"
+        ],
+        "summary": "Get login token from body request.",
+        "description": "Params:\r\n- username: <b>*Required</b> Extranet user. Example: user@domain.com\r\n- password: <b>*Required</b> Extranet password. Example: My_Web_Password\r\n- scope: (Optional) Scope, only for OK Textil clients. Value: OKTXT",
+        "requestBody": {
+          "description": "JSON params request",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonLogin"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonLogin"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonLogin"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonLogin"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonLogin"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonLogin"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/model/get": {
+      "get": {
+        "tags": [
+          "Model"
+        ],
+        "summary": "Get models",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "<b>*Required.<br></br> Format:</b> xx-XX. <b>Example:</b> es-ES",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "description": "<b>*Required. </b>",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.0/order": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Order EndPoint. V1.0\r\nProcess a Web Order.",
+        "description": "JSON Request Comments:\r\n- reference: optional\r\n- comments: optional\r\n- deliveryaddress: required\r\n- deliveryaddress->addressname: required\r\n- deliveryaddress->address: required\r\n- deliveryaddress->city: required\r\n- deliveryaddress->postcode: required\r\n- deliveryaddress->county: optional\r\n- deliveryaddress->statecode: required\r\n- deliveryaddress->state: optional\r\n- deliveryaddress->countrycode: required, ISO 2 CHAR CODE\r\n- deliveryaddress->country: optional\r\n- deliveryaddress->phone: required\r\n- deliveryaddress->email: required\r\n- deliveryaddress->saveaddress: optional, default \"false\"\r\n- lines: required\r\n- lines->quantity: required, quantity > 0\r\n- lines->warehouse: optional, '2010' is set default",
+        "requestBody": {
+          "description": "Web Order JSON",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          },
+          "503": {
+            "description": "Maintenance active."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.1/order": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Order EndPoint. V1.1\r\nProcess a Web Order.",
+        "description": "JSON Request Comments:\r\n- reference: optional\r\n- comments: optional\r\n- requireFullStock: optional\r\n- isAirShipping: optional\r\n- deliveryaddress: required\r\n- deliveryaddress->addressname: required\r\n- deliveryaddress->address: required\r\n- deliveryaddress->city: required\r\n- deliveryaddress->postcode: required\r\n- deliveryaddress->county: optional\r\n- deliveryaddress->statecode: required\r\n- deliveryaddress->state: optional\r\n- deliveryaddress->countrycode: required, ISO 2 CHAR CODE\r\n- deliveryaddress->country: optional\r\n- deliveryaddress->phone: required\r\n- deliveryaddress->email: required\r\n- deliveryaddress->saveaddress: optional, default \"false\"\r\n- lines: required\r\n- lines->quantity: required, quantity > 0\r\n- lines->warehouse: optional, '2010' is set default",
+        "requestBody": {
+          "description": "Web Order JSON",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          },
+          "503": {
+            "description": "Maintenance active."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.1/order/info": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Orders Info EndPoint. V1.1\r\nGet info from web orders.",
+        "description": "Params (If all parameters are empty, the response is limited to 100 orders):\r\n- weborders: Web Order codes separated by ','.\r\n- references: Reference codes separated by ','.\r\n- datefrom: Format 'yyyyMMdd'. Example: 20240522.\r\n- dateto: Format 'yyyyMMdd'. Example: 20240523.",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "weborders": {
+                    "type": "string"
+                  },
+                  "references": {
+                    "type": "string"
+                  },
+                  "datefrom": {
+                    "type": "string"
+                  },
+                  "dateto": {
+                    "type": "string"
+                  }
+                }
+              },
+              "encoding": {
+                "weborders": {
+                  "style": "form"
+                },
+                "references": {
+                  "style": "form"
+                },
+                "datefrom": {
+                  "style": "form"
+                },
+                "dateto": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/getuserstock": {
+      "post": {
+        "tags": [
+          "Stock"
+        ],
+        "summary": "Gets the stock catalogue",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "whscode": {
+                    "type": "string"
+                  },
+                  "brand": {
+                    "type": "string"
+                  }
+                }
+              },
+              "encoding": {
+                "whscode": {
+                  "style": "form"
+                },
+                "brand": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request: Some parameter is wrong."
+          },
+          "500": {
+            "description": "Error: Invalid request."
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/consignment": {
+      "put": {
+        "tags": [
+          "Stock"
+        ],
+        "summary": "Send updated consignment stock.",
+        "description": "Schema: JsonStockConsignment",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonStockConsignment"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonStockConsignment"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonStockConsignment"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonStockConsignment"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonStockConsignment"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonStockConsignment"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonStockConsignment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK. Stock updated"
+          },
+          "400": {
+            "description": "BadRequest. Some paramter is wrong"
+          },
+          "500": {
+            "description": "Error. Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/version": {
+      "get": {
+        "tags": [
+          "Version"
+        ],
+        "summary": "Version v1.0. Get",
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1.1/version": {
+      "get": {
+        "tags": [
+          "Version"
+        ],
+        "summary": "Version v1.1. Get",
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Category": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentCategory": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "brand": {
+            "type": "string",
+            "nullable": true
+          },
+          "branchOrder": {
+            "type": "string",
+            "nullable": true
+          },
+          "modelCount": {
+            "type": "string",
+            "nullable": true
+          },
+          "modelList": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryDTO": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "models": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentCategory": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "brand": {
+            "type": "string",
+            "nullable": true
+          },
+          "branchOrder": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryTree": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "models": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentCategory": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "brand": {
+            "type": "string",
+            "nullable": true
+          },
+          "branchorder": {
+            "type": "string",
+            "nullable": true
+          },
+          "subcategories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategoryTree"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DATAHandling": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "id",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "description": "name",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "description": "price",
+            "format": "double"
+          },
+          "minprice": {
+            "type": "number",
+            "description": "minprice",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Lista de Manipulados"
+      },
+      "DATAHandlingsModels": {
+        "type": "object",
+        "properties": {
+          "modelcode": {
+            "type": "string",
+            "description": "modelcode",
+            "nullable": true
+          },
+          "modelid": {
+            "type": "string",
+            "nullable": true
+          },
+          "availablehandlings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "availablehandlings",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Lista de relaciones con los modelos"
+      },
+      "DATA_ReprocesosPricePrices": {
+        "type": "object",
+        "properties": {
+          "limitinf": {
+            "type": "number",
+            "format": "double"
+          },
+          "limitsup": {
+            "type": "number",
+            "format": "double"
+          },
+          "pricearea": {
+            "type": "number",
+            "format": "double"
+          },
+          "baseprice": {
+            "type": "number",
+            "format": "double"
+          },
+          "additionalcolorprice": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DATA_ReprocesosPrices": {
+        "type": "object",
+        "properties": {
+          "technique": {
+            "type": "string",
+            "description": "technique",
+            "nullable": true
+          },
+          "techniquedescription": {
+            "type": "string",
+            "description": "techniquedescription",
+            "nullable": true
+          },
+          "rangemode": {
+            "type": "string",
+            "description": "rangemode",
+            "nullable": true
+          },
+          "rangeprice": {
+            "type": "boolean",
+            "description": "rangeprice"
+          },
+          "piercingprice": {
+            "type": "boolean",
+            "description": "piercingprice"
+          },
+          "colorprice": {
+            "type": "boolean",
+            "description": "colorprice"
+          },
+          "areaprice": {
+            "type": "boolean",
+            "description": "areaprice"
+          },
+          "sideprice": {
+            "type": "boolean",
+            "description": "sideprice"
+          },
+          "segmentsprice": {
+            "type": "boolean",
+            "description": "segmentsprice"
+          },
+          "stitches": {
+            "type": "integer",
+            "description": "stitches",
+            "format": "int32"
+          },
+          "maxarea": {
+            "type": "integer",
+            "description": "maxarea",
+            "format": "int32"
+          },
+          "namebyname": {
+            "type": "number",
+            "description": "namebyname",
+            "format": "double"
+          },
+          "requirebase": {
+            "type": "boolean",
+            "description": "requirebase"
+          },
+          "cliche": {
+            "type": "integer",
+            "description": "cliche",
+            "format": "int32"
+          },
+          "clicherepeat": {
+            "type": "integer",
+            "description": "clicherepeat",
+            "format": "int32"
+          },
+          "minimunwork": {
+            "type": "integer",
+            "description": "minimunwork",
+            "format": "int32"
+          },
+          "ironedprice": {
+            "type": "number",
+            "description": "ironedprice",
+            "format": "double"
+          },
+          "handlingprice": {
+            "type": "number",
+            "description": "handlingprice",
+            "format": "double"
+          },
+          "minworkbysize": {
+            "type": "number",
+            "description": "minworkbysize",
+            "format": "double"
+          },
+          "minworkembroidery": {
+            "type": "number",
+            "description": "minworkembroidery",
+            "format": "double"
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DATA_ReprocesosPricePrices"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Item Jobsheet"
+      },
+      "DataReprocesos": {
+        "type": "object",
+        "properties": {
+          "itemcode": {
+            "type": "string",
+            "nullable": true
+          },
+          "modelcode": {
+            "type": "string",
+            "nullable": true
+          },
+          "modelid": {
+            "type": "string",
+            "nullable": true
+          },
+          "sizecode": {
+            "type": "string",
+            "nullable": true
+          },
+          "sizename": {
+            "type": "string",
+            "nullable": true
+          },
+          "colorcode": {
+            "type": "string",
+            "nullable": true
+          },
+          "colorname": {
+            "type": "string",
+            "nullable": true
+          },
+          "shop": {
+            "type": "string",
+            "nullable": true
+          },
+          "positions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Position"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "JsonDeliveryAddress": {
+        "type": "object",
+        "properties": {
+          "addressname": {
+            "type": "string",
+            "description": "Address Name",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "description": "Street and Number",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "description": "City",
+            "nullable": true
+          },
+          "postcode": {
+            "type": "string",
+            "description": "PostCode",
+            "nullable": true
+          },
+          "county": {
+            "type": "string",
+            "description": "County",
+            "nullable": true
+          },
+          "statecode": {
+            "type": "string",
+            "description": "State Code",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "description": "State Name",
+            "nullable": true
+          },
+          "countrycode": {
+            "type": "string",
+            "description": "Country Code",
+            "nullable": true
+          },
+          "country": {
+            "type": "string",
+            "description": "Country Name",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone Number",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "description": "Email",
+            "nullable": true
+          },
+          "saveaddress": {
+            "type": "string",
+            "description": "Save Address?",
+            "nullable": true
+          },
+          "attde": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Order Delivery Address"
+      },
+      "JsonHandlings": {
+        "type": "object",
+        "properties": {
+          "handlingtypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DATAHandling"
+            },
+            "nullable": true
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DATAHandlingsModels"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "JsonLogin": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "password": {
+            "type": "string",
+            "nullable": true
+          },
+          "scope": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "JsonOrder": {
+        "required": [
+          "deliveryaddress",
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": "string",
+            "description": "Client's reference",
+            "nullable": true
+          },
+          "deliveryaddress": {
+            "$ref": "#/components/schemas/JsonDeliveryAddress"
+          },
+          "comments": {
+            "type": "string",
+            "description": "Comments",
+            "nullable": true
+          },
+          "requireFullStock": {
+            "type": "boolean",
+            "description": "Require Full Stock",
+            "nullable": true
+          },
+          "isAirShipping": {
+            "type": "boolean",
+            "description": "Is Air Shipping",
+            "nullable": true
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JsonOrderDetails"
+            },
+            "description": "Order Lines"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Web Order"
+      },
+      "JsonOrderDetails": {
+        "required": [
+          "itemcode",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "itemcode": {
+            "minLength": 1,
+            "type": "string",
+            "description": "ItemCode"
+          },
+          "quantity": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Quantity"
+          },
+          "warehouse": {
+            "type": "string",
+            "description": "Warehouse code",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "JsonReprocesos": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataReprocesos"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "JsonReprocesosPrices": {
+        "type": "object",
+        "properties": {
+          "printprices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DATA_ReprocesosPrices"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "JsonStockConsignment": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Date of stock update. Format: yyyy-MM-dd HH:mm:ss.\r\nIf NULL or Empty it will take current time.",
+            "nullable": true
+          },
+          "stock": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockConsignment"
+            },
+            "description": "Updated consignment stock list.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Position": {
+        "type": "object",
+        "properties": {
+          "positioncode": {
+            "type": "string",
+            "nullable": true
+          },
+          "positiondescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "darkbackground": {
+            "type": "boolean"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "techs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tech"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StockConsignment": {
+        "required": [
+          "onhand",
+          "sku",
+          "warehouse"
+        ],
+        "type": "object",
+        "properties": {
+          "warehouse": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Warehouse code. Specified by your sales representative."
+          },
+          "sku": {
+            "minLength": 1,
+            "type": "string",
+            "description": "SKU or product code."
+          },
+          "onhand": {
+            "type": "integer",
+            "description": "Onhand stock.",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Tech": {
+        "type": "object",
+        "properties": {
+          "techcode": {
+            "type": "string",
+            "nullable": true
+          },
+          "techdescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "width": {
+            "type": "string",
+            "nullable": true
+          },
+          "height": {
+            "type": "string",
+            "nullable": true
+          },
+          "maxcolor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
