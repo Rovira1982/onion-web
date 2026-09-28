@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import ProductCard from "@/components/ProductCard";
 import { getTopCategories, getFeaturedProducts } from "@/lib/products";
+import { getActivePromotion } from "@/lib/promotions";
 
 const TRUST_BADGES = [
   {
@@ -36,9 +37,10 @@ const HOW_IT_WORKS = [
   },
 ];
 
-export default function Home() {
-  const categories = getTopCategories(8);
-  const bestsellers = getFeaturedProducts(8);
+export default async function Home() {
+  const categories = await getTopCategories(8);
+  const bestsellers = await getFeaturedProducts(8);
+  const promotion = await getActivePromotion();
 
   return (
     <>
@@ -105,6 +107,36 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Promoción de temporada */}
+      {promotion && (
+        <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
+          <div className="grid gap-8 overflow-hidden rounded-3xl border border-border bg-brand-light sm:grid-cols-2 sm:items-center">
+            <div className="p-8 sm:p-10">
+              <h2 className="text-2xl font-bold text-ink sm:text-3xl">{promotion.title}</h2>
+              {promotion.subtitle && <p className="mt-3 max-w-md text-ink-soft">{promotion.subtitle}</p>}
+              <Link
+                href={promotion.linkUrl}
+                className="mt-6 inline-flex cursor-pointer rounded-full bg-brand px-7 py-3 font-display text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+              >
+                {promotion.ctaLabel}
+              </Link>
+            </div>
+            {promotion.imageUrl && (
+              <div className="aspect-square sm:aspect-auto sm:h-full">
+                <Image
+                  src={promotion.imageUrl}
+                  alt={promotion.title}
+                  width={600}
+                  height={600}
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Encuentra el regalo perfecto */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
