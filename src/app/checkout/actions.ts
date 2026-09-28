@@ -6,7 +6,12 @@ import { validateDiscountCode, type DiscountCheckResult } from "@/lib/discounts"
 
 export type CheckoutDesign = {
   logoFileUrl: string;
-  markings: Partial<Record<"pecho" | "espalda" | "mangas", { x: number; y: number; scale: number; rotation: number }>>;
+  markings: Partial<
+    Record<
+      "pecho" | "espalda" | "manga_izquierda" | "manga_derecha",
+      { x: number; y: number; scale: number; rotation: number; colorName?: string }
+    >
+  >;
   previewImageUrl: string;
 };
 

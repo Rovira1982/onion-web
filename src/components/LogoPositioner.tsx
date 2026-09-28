@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { MOCKUP_VIEWBOX, ZONE_VIEW, type MarkZone } from "@/lib/garment-mockup";
+import { ZONE_LABEL, mockupImageUrl, type MarkZone, type MockupGarment, type MockupColor } from "@/lib/garment-mockup";
 
 export type LogoTransform = { x: number; y: number; scale: number; rotation: number };
 export type ZoneTransforms = Partial<Record<MarkZone, LogoTransform>>;
@@ -11,10 +11,14 @@ const DEFAULT_TRANSFORM: LogoTransform = { x: 0, y: 0, scale: 1, rotation: 0 };
 export default function LogoPositioner({
   zones,
   logoUrl,
+  garment,
+  color,
   onChange,
 }: {
   zones: MarkZone[];
   logoUrl: string;
+  garment: MockupGarment;
+  color: MockupColor;
   onChange: (t: ZoneTransforms) => void;
 }) {
   const [activeZone, setActiveZone] = useState<MarkZone>(zones[0]);
@@ -53,9 +57,6 @@ export default function LogoPositioner({
     dragState.current = null;
   }
 
-  const view = ZONE_VIEW[activeZone];
-  const ZONE_LABEL: Record<MarkZone, string> = { pecho: "Pecho", espalda: "Espalda", mangas: "Mangas" };
-
   return (
     <div>
       {zones.length > 1 && (
@@ -79,10 +80,15 @@ export default function LogoPositioner({
         className="relative aspect-square w-full touch-none overflow-hidden rounded-2xl border border-border bg-muted"
         onPointerMove={handlePointerMove}
       >
-        <svg viewBox={MOCKUP_VIEWBOX} className="h-full w-full p-6">
-          <path d={view.path} fill="#e8e5df" stroke="#c9c4ba" strokeWidth={2} />
-        </svg>
-        <p className="pointer-events-none absolute left-3 top-3 text-xs font-semibold text-ink-soft">{view.label}</p>
+        <img
+          src={mockupImageUrl(garment, color, activeZone)}
+          alt={ZONE_LABEL[activeZone]}
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
+          draggable={false}
+        />
+        <p className="pointer-events-none absolute left-3 top-3 text-xs font-semibold text-ink-soft">
+          {ZONE_LABEL[activeZone]}
+        </p>
         <div
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}

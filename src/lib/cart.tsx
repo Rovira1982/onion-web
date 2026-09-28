@@ -11,7 +11,12 @@ export type CartDesign = {
   logoFileUrl: string;
   // One transform per active marking zone (pecho/espalda/mangas) — each gets
   // its own mockup view, so each needs its own position/scale/rotation.
-  markings: Partial<Record<"pecho" | "espalda" | "mangas", { x: number; y: number; scale: number; rotation: number }>>;
+  markings: Partial<
+    Record<
+      "pecho" | "espalda" | "manga_izquierda" | "manga_derecha",
+      { x: number; y: number; scale: number; rotation: number; colorName?: string }
+    >
+  >;
   previewImageUrl: string;
 };
 

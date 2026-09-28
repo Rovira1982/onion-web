@@ -11,7 +11,14 @@ import {
 } from "@/lib/pricing";
 import LogoPositioner, { type ZoneTransforms } from "@/components/LogoPositioner";
 import { subirLogo } from "@/app/producto/[slug]/actions";
-import { ZONE_VIEW, type MarkZone } from "@/lib/garment-mockup";
+import {
+  mockupImageUrl,
+  MOCKUP_GARMENTS,
+  MOCKUP_COLORS,
+  type MarkZone,
+  type MockupGarment,
+  type MockupColor,
+} from "@/lib/garment-mockup";
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -31,12 +38,16 @@ function dataUrlToFile(dataUrl: string, filename: string): File {
   return new File([bytes], filename, { type: mime });
 }
 
-// One panel per active zone (its own mockup view + the logo at that zone's
-// transform), laid out side by side — a flat SVG mockup, not the product's
-// own photo (that's on the supplier's CDN without CORS headers and would
-// taint the canvas: toDataURL throws SecurityError on a cross-origin,
-// non-CORS image).
-async function renderZonesPreview(logoUrl: string, transforms: ZoneTransforms): Promise<string> {
+// One panel per active zone (its own mockup photo + the logo at that
+// zone's transform), laid out side by side. The mockup photos are our own
+// (public/mockups/), same-origin, so drawImage/toDataURL never hits the
+// canvas-taint issue a supplier's own CDN photo would.
+async function renderZonesPreview(
+  logoUrl: string,
+  transforms: ZoneTransforms,
+  garment: MockupGarment,
+  color: MockupColor
+): Promise<string> {
   const zones = (Object.keys(transforms) as MarkZone[]).filter((z) => transforms[z]);
   const panel = 260;
   const canvas = document.createElement("canvas");
@@ -47,22 +58,17 @@ async function renderZonesPreview(logoUrl: string, transforms: ZoneTransforms): 
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const logo = await loadImage(logoUrl);
+  const mockups = await Promise.all(zones.map((zone) => loadImage(mockupImageUrl(garment, color, zone))));
 
   zones.forEach((zone, i) => {
     const t = transforms[zone]!;
     const offsetX = i * panel;
-    const scaleToPanel = panel / 300; // mockup paths use a 300x360 viewBox
+    const mockup = mockups[i];
 
-    ctx.save();
-    ctx.translate(offsetX, 0);
-    ctx.scale(scaleToPanel, scaleToPanel);
-    ctx.fillStyle = "#e8e5df";
-    ctx.strokeStyle = "#c9c4ba";
-    ctx.lineWidth = 2;
-    const path = new Path2D(ZONE_VIEW[zone].path);
-    ctx.fill(path);
-    ctx.stroke(path);
-    ctx.restore();
+    const mockupRatio = Math.min(panel / mockup.width, panel / mockup.height);
+    const mw = mockup.width * mockupRatio;
+    const mh = mockup.height * mockupRatio;
+    ctx.drawImage(mockup, offsetX + (panel - mw) / 2, (panel - mh) / 2, mw, mh);
 
     const box = panel * 0.4;
     const ratio = Math.min(box / logo.width, box / logo.height);
@@ -100,6 +106,38 @@ const SIZES: { value: PrintSize; label: string }[] = [
 
 const DEFAULT_ZONE: PrintZone = { active: false, colors: 1, size: "10x10" };
 
+// DTF y Sublimación imprimen a todo color directamente desde el logo subido
+// — solo Serigrafía y Vinilo necesitan saber qué color de tinta/vinilo usar.
+const NEEDS_COLOR_NAME: Record<Technique, boolean> = {
+  DTF: false,
+  Sublimacion: false,
+  Serigrafia: true,
+  Vinilo: true,
+};
+
+// Vinilo requiere presupuesto a medida — no se calcula precio online para
+// esta técnica, se dirige al cliente a contacto en su lugar.
+const REQUIRES_CONSULTATION: Record<Technique, boolean> = {
+  DTF: false,
+  Sublimacion: false,
+  Serigrafia: false,
+  Vinilo: true,
+};
+
+const COLOR_PALETTE = [
+  "Blanco",
+  "Negro",
+  "Rojo",
+  "Azul",
+  "Amarillo",
+  "Verde",
+  "Naranja",
+  "Rosa",
+  "Gris",
+  "Dorado",
+  "Plateado",
+];
+
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 }
@@ -108,10 +146,16 @@ function ZoneToggle({
   title,
   zone,
   onChange,
+  showColorName,
+  colorName,
+  onColorNameChange,
 }: {
   title: string;
   zone: PrintZone;
   onChange: (z: PrintZone) => void;
+  showColorName: boolean;
+  colorName: string;
+  onColorNameChange: (color: string) => void;
 }) {
   return (
     <div className={`rounded-xl border p-3 ${zone.active ? "border-brand bg-brand-light" : "border-border bg-white"}`}>
@@ -148,6 +192,20 @@ function ZoneToggle({
               </option>
             ))}
           </select>
+          {showColorName && (
+            <select
+              value={colorName}
+              onChange={(e) => onColorNameChange(e.target.value)}
+              className="col-span-2 rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
+            >
+              <option value="">Color del marcaje…</option>
+              {COLOR_PALETTE.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
     </div>
@@ -173,10 +231,17 @@ export default function AddToCartForm({
   const [pecho, setPecho] = useState<PrintZone>({ ...DEFAULT_ZONE });
   const [espalda, setEspalda] = useState<PrintZone>({ ...DEFAULT_ZONE });
   const [mangas, setMangas] = useState<PrintZone>({ ...DEFAULT_ZONE });
+  const [mangaIzquierda, setMangaIzquierda] = useState(false);
+  const [mangaDerecha, setMangaDerecha] = useState(false);
+  const [mockupGarment, setMockupGarment] = useState<MockupGarment>("camiseta");
+  const [mockupColor, setMockupColor] = useState<MockupColor>("blanco");
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoTransforms, setLogoTransforms] = useState<ZoneTransforms>({});
+  const [markColors, setMarkColors] = useState<Partial<Record<MarkZone, string>>>({});
+  const needsColorName = NEEDS_COLOR_NAME[technique];
+  const needsConsultation = REQUIRES_CONSULTATION[technique];
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -185,22 +250,38 @@ export default function AddToCartForm({
   const activeZones = [
     pecho.active && ("pecho" as const),
     espalda.active && ("espalda" as const),
-    mangas.active && ("mangas" as const),
+    mangas.active && mangaIzquierda && ("manga_izquierda" as const),
+    mangas.active && mangaDerecha && ("manga_derecha" as const),
   ].filter((z): z is MarkZone => Boolean(z));
+
+  // Nº de mangas a estampar lo decide qué lado(s) coloca el cliente en el
+  // posicionador — por defecto 1 si activa "Mangas" pero aún no ha elegido
+  // lado, para no cobrar 0.
+  const mangasMultiplier = Math.max(1, (mangaIzquierda ? 1 : 0) + (mangaDerecha ? 1 : 0));
 
   const marking = useMemo(
     () =>
       mode === "personalizado"
-        ? { technique, pecho, espalda, mangas: { ...mangas, multiplier: 1 }, garmentType: "Cliente" as const, garmentUnitCost: variant.price, quantity, extraMargin: EXTRA_MARGIN, personalizedName: false }
+        ? {
+            technique,
+            pecho,
+            espalda,
+            mangas: { ...mangas, multiplier: mangasMultiplier },
+            garmentType: "Cliente" as const,
+            garmentUnitCost: variant.price,
+            quantity,
+            extraMargin: EXTRA_MARGIN,
+            personalizedName: false,
+          }
         : null,
-    [mode, technique, pecho, espalda, mangas, variant.price, quantity]
+    [mode, technique, pecho, espalda, mangas, mangasMultiplier, variant.price, quantity]
   );
 
   const unitPrice = useMemo(() => {
     if (!marking) return variant.price;
-    if (noZoneActive) return null;
+    if (noZoneActive || needsConsultation) return null;
     return calculateQuote(marking).finalUnitPrices.recommended;
-  }, [marking, noZoneActive, variant.price]);
+  }, [marking, noZoneActive, needsConsultation, variant.price]);
 
   async function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -223,16 +304,26 @@ export default function AddToCartForm({
     if (unitPrice === null) return;
     setSaving(true);
 
-    let design: { logoFileUrl: string; markings: ZoneTransforms; previewImageUrl: string } | null = null;
+    let design: {
+      logoFileUrl: string;
+      markings: Partial<Record<MarkZone, { x: number; y: number; scale: number; rotation: number; colorName?: string }>>;
+      previewImageUrl: string;
+    } | null = null;
     if (marking && logoUrl) {
       try {
-        const previewDataUrl = await renderZonesPreview(logoUrl, logoTransforms);
+        const previewDataUrl = await renderZonesPreview(logoUrl, logoTransforms, mockupGarment, mockupColor);
         const previewFile = dataUrlToFile(previewDataUrl, "preview.png");
         const formData = new FormData();
         formData.append("file", previewFile);
         const result = await subirLogo(formData);
         if (!("error" in result)) {
-          design = { logoFileUrl: logoUrl, markings: logoTransforms, previewImageUrl: result.url };
+          const markings = Object.fromEntries(
+            (Object.keys(logoTransforms) as MarkZone[]).map((zone) => [
+              zone,
+              { ...logoTransforms[zone]!, ...(needsColorName && markColors[zone] ? { colorName: markColors[zone] } : {}) },
+            ])
+          );
+          design = { logoFileUrl: logoUrl, markings, previewImageUrl: result.url };
         }
       } catch {
         // Preview generation/upload failed — still add the item with the
@@ -298,16 +389,78 @@ export default function AddToCartForm({
               ))}
             </select>
           </label>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <ZoneToggle title="Pecho" zone={pecho} onChange={setPecho} />
-            <ZoneToggle title="Espalda" zone={espalda} onChange={setEspalda} />
-            <ZoneToggle title="Mangas" zone={mangas} onChange={setMangas} />
-          </div>
-          {noZoneActive && (
-            <p className="text-xs text-brand-dark">Activa al menos una zona para ver el precio.</p>
+
+          {technique === "Sublimacion" && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              ⚠ Sublimación solo disponible en prendas de poliéster y colores claros.
+            </p>
           )}
 
-          {!noZoneActive && (
+          {needsConsultation ? (
+            <div className="rounded-xl border border-border bg-muted p-4 text-sm text-ink-soft">
+              Esta técnica requiere presupuesto a medida — no la calculamos online.{" "}
+              <a href="/contacto" className="font-semibold text-brand hover:text-brand-dark">
+                Escríbenos
+              </a>{" "}
+              y te lo preparamos.
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <ZoneToggle
+                  title="Pecho"
+                  zone={pecho}
+                  onChange={setPecho}
+                  showColorName={needsColorName}
+                  colorName={markColors.pecho ?? ""}
+                  onColorNameChange={(c) => setMarkColors((prev) => ({ ...prev, pecho: c }))}
+                />
+                <ZoneToggle
+                  title="Espalda"
+                  zone={espalda}
+                  onChange={setEspalda}
+                  showColorName={needsColorName}
+                  colorName={markColors.espalda ?? ""}
+                  onColorNameChange={(c) => setMarkColors((prev) => ({ ...prev, espalda: c }))}
+                />
+                <ZoneToggle
+                  title="Mangas"
+                  zone={mangas}
+                  onChange={setMangas}
+                  showColorName={needsColorName}
+                  colorName={markColors.manga_izquierda ?? markColors.manga_derecha ?? ""}
+                  onColorNameChange={(c) => setMarkColors((prev) => ({ ...prev, manga_izquierda: c, manga_derecha: c }))}
+                />
+              </div>
+              {mangas.active && (
+                <div className="flex gap-4 text-sm text-ink">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={mangaIzquierda}
+                      onChange={(e) => setMangaIzquierda(e.target.checked)}
+                      className="h-4 w-4 accent-brand"
+                    />
+                    Manga izquierda
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={mangaDerecha}
+                      onChange={(e) => setMangaDerecha(e.target.checked)}
+                      className="h-4 w-4 accent-brand"
+                    />
+                    Manga derecha
+                  </label>
+                </div>
+              )}
+              {noZoneActive && (
+                <p className="text-xs text-brand-dark">Activa al menos una zona para ver el precio.</p>
+              )}
+            </>
+          )}
+
+          {!noZoneActive && !needsConsultation && (
             <div className="rounded-xl border border-border p-3">
               <span className="text-xs font-semibold text-ink-soft">Sube tu logo (opcional)</span>
               <input
@@ -320,7 +473,37 @@ export default function AddToCartForm({
               {uploadError && <p className="mt-2 text-xs text-red-600">{uploadError}</p>}
               {logoUrl && activeZones.length > 0 && (
                 <div className="mt-3">
-                  <LogoPositioner zones={activeZones} logoUrl={logoUrl} onChange={setLogoTransforms} />
+                  <div className="mb-2 flex gap-2">
+                    <select
+                      value={mockupGarment}
+                      onChange={(e) => setMockupGarment(e.target.value as MockupGarment)}
+                      className="rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
+                    >
+                      {MOCKUP_GARMENTS.map((g) => (
+                        <option key={g.value} value={g.value}>
+                          {g.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={mockupColor}
+                      onChange={(e) => setMockupColor(e.target.value as MockupColor)}
+                      className="rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
+                    >
+                      {MOCKUP_COLORS.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <LogoPositioner
+                    zones={activeZones}
+                    logoUrl={logoUrl}
+                    garment={mockupGarment}
+                    color={mockupColor}
+                    onChange={setLogoTransforms}
+                  />
                 </div>
               )}
             </div>
