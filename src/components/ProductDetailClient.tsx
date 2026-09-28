@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { describeEngravingTechnique, type ProductDetail } from "@/lib/product-format";
+import { describeEngravingTechnique, describeMaterial, type ProductDetail } from "@/lib/product-format";
 import AddToCartForm from "@/components/AddToCartForm";
 
 const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"];
@@ -113,7 +113,7 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
         {product.material && (
           <div>
             <dt className="font-display font-semibold text-ink-soft">Material</dt>
-            <dd className="mt-1 text-ink">{product.material}</dd>
+            <dd className="mt-1 text-ink">{describeMaterial(product.material)}</dd>
           </div>
         )}
         {!hasVariants && selected?.color && (

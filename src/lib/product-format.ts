@@ -65,3 +65,39 @@ export function describeEngravingTechnique(raw: string): string {
   const labels = parts.map((p) => TECHNIQUE_LABELS[p] ?? p);
   return Array.from(new Set(labels)).join(" · ");
 }
+
+// Valento's characteristics.composicion (and composicion-exterior/-interior)
+// packs each material as "percentage_material", multiple materials joined
+// by "##" and no accents (e.g. "65_poliester##35_algodon"). Everything else
+// (Cifra, TopTex) already stores plain, human-readable text and passes
+// through unchanged.
+const MATERIAL_NAME_LABELS: Record<string, string> = {
+  poliester: "poliéster",
+  algodon: "algodón",
+  algodon_organico: "algodón orgánico",
+  poliamida: "poliamida",
+  elastano: "elastano",
+  viscosa: "viscosa",
+  lana: "lana",
+  acrilico: "acrílico",
+  nylon: "nailon",
+  spandex: "spandex",
+  lino: "lino",
+  cuero: "cuero",
+  pu: "poliuretano",
+  pvc: "PVC",
+};
+
+export function describeMaterial(raw: string): string {
+  if (!raw) return "";
+  if (!raw.includes("##") && !/^\d+_/.test(raw)) return raw;
+  return raw
+    .split("##")
+    .map((part) => {
+      const [pct, ...nameParts] = part.split("_");
+      const name = nameParts.join("_").toLowerCase();
+      const label = MATERIAL_NAME_LABELS[name] ?? name;
+      return /^\d+$/.test(pct) ? `${pct}% ${label.charAt(0).toUpperCase()}${label.slice(1)}` : part;
+    })
+    .join(" / ");
+}
