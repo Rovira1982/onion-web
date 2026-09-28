@@ -91,6 +91,10 @@ model Product {
   supplierSku       String // rootmodel / código base del proveedor
   name              String
   description       String?
+  // Marca del fabricante (Valento, Roly, Kariban...) — distinta del
+  // proveedor/distribuidor (supplier): un mismo proveedor (TopTex) puede
+  // distribuir varias marcas. Null cuando el proveedor no la reporta (Cifra).
+  brand             String?
   subcategory       String?
   categoryId        String?
   category          Category?         @relation(fields: [categoryId], references: [id])
