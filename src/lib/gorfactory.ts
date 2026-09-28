@@ -143,6 +143,184 @@ export function getUserStock(body: Record<string, unknown> = {}) {
   });
 }
 
+export function getModelsIdList(params: { brand: string }) {
+  const q = new URLSearchParams({ brand: params.brand });
+  return gorfactoryFetch<string[]>(`/api/v1/item/getmodelsidlist?${q}`);
+}
+
+export function getCategoryInfo(params: { lang?: string; category: string }) {
+  const q = new URLSearchParams({ lang: params.lang ?? "es", category: params.category });
+  return gorfactoryFetch(`/api/v1/item/categories/get?${q}`);
+}
+
+export function getModels(params: { lang?: string; brand?: string } = {}) {
+  const q = new URLSearchParams();
+  q.set("lang", params.lang ?? "es");
+  if (params.brand) q.set("brand", params.brand);
+  return gorfactoryFetch(`/api/v1/model/get?${q}`);
+}
+
+// --- Pricing & printing (Gorfactory's own marking-cost system) ------------
+// These mirror our presupuestador (src/lib/pricing.ts) but for Gorfactory's
+// own catalog — kept as separate, additive endpoints rather than merged into
+// our pricing engine, since the two are for different supplier catalogs and
+// shouldn't silently cross-pollinate assumptions about margins/floors.
+
+export type GorfactoryPrintPriceTier = {
+  limitinf: number;
+  limitsup: number;
+  pricearea: number;
+  baseprice: number;
+  additionalcolorprice: number;
+};
+
+export type GorfactoryPrintTechnique = {
+  technique: string;
+  techniquedescription: string;
+  rangemode: string;
+  rangeprice: boolean;
+  piercingprice: boolean;
+  colorprice: boolean;
+  areaprice: boolean;
+  sideprice: boolean;
+  segmentsprice: boolean;
+  stitches: number;
+  maxarea: number;
+  namebyname: number;
+  requirebase: boolean;
+  cliche: number;
+  clicherepeat: number;
+  minimunwork: number;
+  ironedprice: number;
+  handlingprice: number;
+  minworkbysize: number;
+  minworkembroidery: number;
+  prices: GorfactoryPrintPriceTier[];
+};
+
+// Full technique+price tier table — global, not per-model (no modelList
+// param in the spec). Same shape as printtechniques below; kept as two
+// functions to match the API's own two distinct endpoints.
+export function getPrintPrices(params: { lang?: string } = {}) {
+  const q = new URLSearchParams({ lang: params.lang ?? "es" });
+  return gorfactoryFetch<{ printprices: GorfactoryPrintTechnique[] }>(`/api/v1/item/printprices?${q}`);
+}
+
+export function getPrintTechniques(params: { lang?: string } = {}) {
+  const q = new URLSearchParams({ lang: params.lang ?? "es" });
+  return gorfactoryFetch<{ printprices: GorfactoryPrintTechnique[] }>(`/api/v1/item/printtechniques?${q}`);
+}
+
+export type GorfactoryPrintPosition = {
+  positioncode: string | null;
+  positiondescription: string | null;
+  darkbackground: boolean;
+  image: string | null;
+  techs: unknown[] | null;
+};
+
+export type GorfactoryPrintOptionsItem = {
+  itemcode: string;
+  modelcode: string;
+  modelid: string;
+  sizecode: string;
+  sizename: string;
+  colorcode: string;
+  colorname: string;
+  shop: string;
+  positions: GorfactoryPrintPosition[];
+};
+
+// v1.3 is the latest revision of this endpoint per the live spec.
+export function getPrintOptions(params: {
+  lang?: string;
+  modelList?: string;
+  brand?: string;
+  pageNumber?: number;
+  pageSize?: number;
+}) {
+  const q = new URLSearchParams({ lang: params.lang ?? "es" });
+  if (params.modelList) q.set("modelList", params.modelList);
+  if (params.brand) q.set("brand", params.brand);
+  if (params.pageNumber) q.set("pageNumber", String(params.pageNumber));
+  if (params.pageSize) q.set("pageSize", String(params.pageSize));
+  return gorfactoryFetch<{ item: GorfactoryPrintOptionsItem[] }>(`/api/v1.3/item/printoptions?${q}`);
+}
+
+export function getPrintHandlings(params: { lang?: string; modelList?: string } = {}) {
+  const q = new URLSearchParams({ lang: params.lang ?? "es" });
+  if (params.modelList) q.set("modelList", params.modelList);
+  return gorfactoryFetch<{
+    handlingtypes: { id: string; name: string; price: number; minprice: number }[];
+    models: { modelcode: string; modelid: string; availablehandlings: string[] }[];
+  }>(`/api/v1/item/printhandlings?${q}`);
+}
+
+// Wholesale pricelist — POST multipart/form-data, unlike the GET-based
+// catalog/item endpoints above (matches the live spec exactly).
+export function getPricelist(params: {
+  brand?: string;
+  category?: string;
+  model?: string;
+  color?: string;
+  size?: string;
+  includeoutlet?: 0 | 1;
+}) {
+  const form = new FormData();
+  if (params.brand) form.set("brand", params.brand);
+  if (params.category) form.set("category", params.category);
+  if (params.model) form.set("model", params.model);
+  if (params.color) form.set("color", params.color);
+  if (params.size) form.set("size", params.size);
+  form.set("includeoutlet", String(params.includeoutlet ?? 0));
+  return gorfactoryFetch(`/api/v1/item/pricelist`, { method: "POST", body: form });
+}
+
+// "Jobsheet" — Gorfactory's own printable production sheet per model.
+// Worth revisiting once we design our own admin work-sheet (Anexo A) —
+// may be reusable as-is for Gorfactory-sourced order lines instead of
+// building an equivalent from scratch.
+export function getJobsheet(params: { lang?: string; brand?: string; models: string }) {
+  const form = new FormData();
+  form.set("lang", params.lang ?? "es");
+  if (params.brand) form.set("brand", params.brand);
+  form.set("models", params.models);
+  return gorfactoryFetch(`/api/v1/item/jobsheet`, { method: "POST", body: form });
+}
+
+// --- Docs (orders/invoices/delivery notes/tracking placed with Gorfactory) -
+// doctype: "order" | "invoice" | "payment" | "deliverynote" | "tracking" |
+// "expiration" | "report347" — see GOR_WSClients_ES.pdf §5 for the exact
+// shape returned per doctype (they differ significantly).
+export function getDocs(params: { doctype: string; datefrom?: string; dateto?: string }) {
+  const q = new URLSearchParams();
+  if (params.datefrom) q.set("datefrom", params.datefrom);
+  if (params.dateto) q.set("dateto", params.dateto);
+  return gorfactoryFetch(`/api/v1.1/doc/${params.doctype}?${q}`, {
+    headers: { typeresponse: "json" },
+  });
+}
+
+export function getDoc(params: { doctype: string; docnum: string }) {
+  return gorfactoryFetch(`/api/v1.1/doc/${params.doctype}/${params.docnum}`, {
+    headers: { typeresponse: "json" },
+  });
+}
+
+// Returns a PDF binary, not JSON — do not route through gorfactoryFetch's
+// res.json() parsing. Caller should fetch this URL directly (with a fresh
+// bearer token) when it needs the actual file bytes.
+export function docPdfUrl(params: { doctype: string; docnum: string; lang?: string }) {
+  const q = new URLSearchParams({ lang: params.lang ?? "es" });
+  return `${BASE_URL}/api/v1/doc/${params.doctype}/${params.docnum}/pdf?${q}`;
+}
+
+// Status of orders we've already placed via placeOrder() — lets us poll
+// Gorfactory's own tracking instead of only trusting our local Order.status.
+export function getOrderInfo() {
+  return gorfactoryFetch(`/api/v1.1/order/info`);
+}
+
 export type GorfactoryOrder = {
   reference: string;
   deliveryaddress: {
