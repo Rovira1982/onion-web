@@ -129,6 +129,9 @@ export default function PresupuestoPage() {
 
   const noZoneActive = !pecho.active && !espalda.active && !mangas.active;
 
+  // Estimación interna (no se muestra al cliente): esta calculadora siempre
+  // deriva a "solicitar presupuesto" — el precio, si se calcula, solo viaja
+  // en el resumen que recibe el equipo, para agilizar la respuesta.
   const result = useMemo(() => {
     if (noZoneActive || quantity <= 0) return null;
     return calculateQuote({
@@ -173,9 +176,9 @@ export default function PresupuestoPage() {
       </span>
       <h1 className="mt-2 text-3xl font-bold text-ink sm:text-4xl">Calcula tu presupuesto</h1>
       <p className="mt-3 max-w-2xl text-ink-soft">
-        Configura la técnica, las zonas de estampado y la cantidad. El precio se calcula al
-        instante con nuestra estructura de costes real — es orientativo, y lo confirmamos
-        contigo antes de fabricar nada.
+        Configura la técnica, las zonas de estampado y la cantidad. Con regalos promocionales
+        cada producto es distinto, así que preparamos el precio a medida — nos llega tu
+        configuración y te respondemos con el presupuesto en menos de 24 horas.
       </p>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_380px]">
@@ -198,6 +201,12 @@ export default function PresupuestoPage() {
             </label>
           </div>
 
+          {technique === "Sublimacion" && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              ⚠ Sublimación solo disponible en prendas de poliéster y colores claros.
+            </p>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-3">
             <ZoneEditor title="Pecho" zone={pecho} onChange={setPecho} />
             <ZoneEditor title="Espalda" zone={espalda} onChange={setEspalda} />
@@ -212,7 +221,7 @@ export default function PresupuestoPage() {
           </div>
           {noZoneActive && (
             <p className="-mt-2 text-sm text-brand-dark">
-              Activa al menos una zona (pecho, espalda o mangas) para ver el precio.
+              Activa al menos una zona (pecho, espalda o mangas) para describir tu marcaje.
             </p>
           )}
 
@@ -282,52 +291,22 @@ export default function PresupuestoPage() {
 
         {/* Resultado */}
         <aside className="h-fit rounded-3xl bg-ink p-6 text-white lg:sticky lg:top-24">
-          <h2 className="font-display text-lg font-bold">Presupuesto orientativo</h2>
+          <h2 className="font-display text-lg font-bold">Solicita tu presupuesto</h2>
+          <p className="mt-3 text-sm text-white/60">
+            Los regalos promocionales llevan cada uno su propio cálculo — no damos un precio
+            instantáneo aquí. Envíanos tu configuración y te respondemos con el presupuesto real
+            en menos de 24 horas.
+          </p>
 
-          {!result ? (
-            <p className="mt-4 text-sm text-white/60">
-              Completa la configuración para ver el precio.
-            </p>
-          ) : (
-            <>
-              <div className="mt-5 grid gap-3">
-                <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-wide text-white/50">Precio por unidad</p>
-                  <p className="mt-1 font-display text-3xl font-extrabold text-brand">
-                    {money(result.finalUnitPrices.recommended)}
-                  </p>
-                  <p className="mt-1 text-xs text-white/50">
-                    Rango: {money(result.finalUnitPrices.min)} – {money(result.finalUnitPrices.premium)}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-white/50">Subtotal ({quantity} uds.)</p>
-                    <p className="font-display font-bold">{money(result.order.subtotal)}</p>
-                  </div>
-                  <div>
-                    <p className="text-white/50">IVA (21%)</p>
-                    <p className="font-display font-bold">{money(result.order.vat)}</p>
-                  </div>
-                  <div className="col-span-2 border-t border-white/15 pt-3">
-                    <p className="text-white/50">Total con IVA</p>
-                    <p className="font-display text-xl font-extrabold">{money(result.order.total)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <Link
-                href={`/contacto?resumen=${encodeURIComponent(summaryForQuote())}`}
-                className="mt-6 block cursor-pointer rounded-full bg-brand px-5 py-3 text-center font-display text-sm font-bold text-white transition-colors hover:bg-brand-dark"
-              >
-                Solicitar este presupuesto
-              </Link>
-              <p className="mt-3 text-center text-xs text-white/40">
-                Precio orientativo, no vinculante. Lo confirmamos antes de producir.
-              </p>
-            </>
-          )}
+          <Link
+            href={`/contacto?resumen=${encodeURIComponent(summaryForQuote())}`}
+            className="mt-6 block cursor-pointer rounded-full bg-brand px-5 py-3 text-center font-display text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            Solicitar este presupuesto
+          </Link>
+          <p className="mt-3 text-center text-xs text-white/40">
+            Sin compromiso. Te respondemos por email.
+          </p>
         </aside>
       </div>
     </div>

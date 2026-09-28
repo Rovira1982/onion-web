@@ -14,11 +14,12 @@ import {
   type DtfMark,
 } from "@/lib/pricing";
 
+// Mangas: solo Serigrafía o DTF. El vinilo, en este presupuestador, se
+// reserva para nombre/dorsal (cargo fijo más abajo) — no es una opción de
+// mangas ni de ningún otro marcaje aquí.
 const TECHNIQUES: { value: Technique; label: string }[] = [
   { value: "DTF", label: "DTF (transferencia digital)" },
   { value: "Serigrafia", label: "Serigrafía" },
-  { value: "Vinilo", label: "Vinilo (corte y termotransferencia)" },
-  { value: "Sublimacion", label: "Sublimación" },
 ];
 
 const SIZES: { value: PrintSize; label: string }[] = [
@@ -233,7 +234,7 @@ export default function EquipacionPresupuestoPage() {
           >
             <label className="flex items-center justify-between gap-3">
               <span className="font-display text-sm font-bold text-ink">
-                Mangas <span className="font-normal text-ink-soft">— sin cambios respecto al presupuestador simple</span>
+                Mangas <span className="font-normal text-ink-soft">— serigrafía o DTF</span>
               </span>
               <input
                 type="checkbox"
