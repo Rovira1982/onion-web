@@ -4,18 +4,14 @@ function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 }
 
-// Listado mínimo para probar la exportación a FactuSol — no es el panel de
-// administración final (sin autenticación todavía; no desplegar a
-// producción hasta que esta sección esté protegida).
+// Listado mínimo para la exportación a FactuSol — no es el panel de
+// administración final, pero ya vive detrás de /admin/login (ver proxy.ts).
 export default async function AdminPedidosPage() {
   const orders = await listOrders();
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
       <h1 className="text-2xl font-bold text-ink">Pedidos</h1>
-      <p className="mt-2 text-sm text-red-600">
-        Vista provisional sin autenticación — solo para pruebas locales. No publicar así.
-      </p>
 
       {orders.length === 0 ? (
         <p className="mt-8 text-ink-soft">Todavía no hay pedidos.</p>

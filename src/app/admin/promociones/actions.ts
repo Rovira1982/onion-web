@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 export type PromotionInput = {
   title: string;
@@ -26,6 +27,7 @@ function validate(input: PromotionInput): string | null {
 }
 
 export async function crearPromocion(input: PromotionInput): Promise<PromotionResult> {
+  await requireAdmin();
   const error = validate(input);
   if (error) return { error };
 
@@ -45,6 +47,7 @@ export async function crearPromocion(input: PromotionInput): Promise<PromotionRe
 }
 
 export async function actualizarPromocion(id: string, input: PromotionInput): Promise<PromotionResult> {
+  await requireAdmin();
   const error = validate(input);
   if (error) return { error };
 
@@ -65,6 +68,7 @@ export async function actualizarPromocion(id: string, input: PromotionInput): Pr
 }
 
 export async function eliminarPromocion(id: string): Promise<{ ok: true } | { error: string }> {
+  await requireAdmin();
   await prisma.promotion.delete({ where: { id } });
   return { ok: true };
 }

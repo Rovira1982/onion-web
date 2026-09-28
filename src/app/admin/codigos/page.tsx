@@ -5,8 +5,6 @@ function fmt(d: Date) {
   return d.toLocaleDateString("es-ES");
 }
 
-// Listado mínimo de códigos de descuento — sin autenticación todavía; no
-// desplegar a producción hasta que esta sección esté protegida.
 export default async function AdminCodigosPage() {
   const codes = await listDiscountCodes();
 
@@ -21,10 +19,6 @@ export default async function AdminCodigosPage() {
           Nuevo código
         </Link>
       </div>
-      <p className="mt-2 text-sm text-red-600">
-        Vista provisional sin autenticación — solo para pruebas locales. No publicar así.
-      </p>
-
       {codes.length === 0 ? (
         <p className="mt-8 text-ink-soft">Todavía no hay códigos.</p>
       ) : (

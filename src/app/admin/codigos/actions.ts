@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 export type DiscountCodeInput = {
   code: string;
@@ -39,6 +40,7 @@ function toData(input: DiscountCodeInput) {
 }
 
 export async function crearCodigo(input: DiscountCodeInput): Promise<DiscountCodeResult> {
+  await requireAdmin();
   const error = validate(input);
   if (error) return { error };
 
@@ -51,6 +53,7 @@ export async function crearCodigo(input: DiscountCodeInput): Promise<DiscountCod
 }
 
 export async function actualizarCodigo(id: string, input: DiscountCodeInput): Promise<DiscountCodeResult> {
+  await requireAdmin();
   const error = validate(input);
   if (error) return { error };
 
@@ -63,6 +66,7 @@ export async function actualizarCodigo(id: string, input: DiscountCodeInput): Pr
 }
 
 export async function eliminarCodigo(id: string): Promise<{ ok: true } | { error: string }> {
+  await requireAdmin();
   await prisma.discountCode.delete({ where: { id } });
   return { ok: true };
 }

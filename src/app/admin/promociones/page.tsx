@@ -5,8 +5,6 @@ function fmt(d: Date) {
   return d.toLocaleDateString("es-ES");
 }
 
-// Listado mínimo de promociones — sin autenticación todavía; no desplegar a
-// producción hasta que esta sección esté protegida.
 export default async function AdminPromocionesPage() {
   const promotions = await listPromotions();
   const now = new Date();
@@ -22,10 +20,6 @@ export default async function AdminPromocionesPage() {
           Nueva promoción
         </Link>
       </div>
-      <p className="mt-2 text-sm text-red-600">
-        Vista provisional sin autenticación — solo para pruebas locales. No publicar así.
-      </p>
-
       {promotions.length === 0 ? (
         <p className="mt-8 text-ink-soft">Todavía no hay promociones.</p>
       ) : (

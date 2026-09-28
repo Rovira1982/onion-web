@@ -3,8 +3,10 @@ import { PassThrough } from "node:stream";
 import { NextResponse } from "next/server";
 import { getOrderById } from "@/lib/orders";
 import { buildCliente, buildPedido, buildLineas } from "@/lib/factusol";
+import { requireAdmin } from "@/lib/auth";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
   const { id } = await params;
   const order = await getOrderById(id);
   if (!order) return new NextResponse("Pedido no encontrado", { status: 404 });
