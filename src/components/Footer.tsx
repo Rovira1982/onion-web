@@ -2,8 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { getTopCategories } from "@/lib/products";
 
-export default function Footer() {
-  const categories = getTopCategories(10);
+export default async function Footer() {
+  const categories = await getTopCategories(10);
 
   return (
     <footer className="mt-24 border-t border-border bg-ink text-white">

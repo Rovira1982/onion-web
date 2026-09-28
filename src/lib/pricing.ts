@@ -4,6 +4,13 @@
 // 30x30, 8 uds, coste prenda 1.65€, margen 0.7) — matched the spreadsheet
 // exactly before two confirmed corrections: the Serigrafia double screen
 // charge, and the Sublimacion 11-30-unit floor. See inline notes below.
+//
+// Note on minUnitPriceForTechnique: the garment's own margin is a separate,
+// flexible lever (the business may sell the garment closer to cost on large
+// orders) — it does not belong inside this floor. The floor only needs to
+// guarantee the technique's own material+time cost is covered, which the
+// Excel-sourced minimums already do with headroom (checked: DTF's 5€ floor
+// at the ≤10-unit tier vs. ~1.08€ of actual material+labor for a 30x30 mark).
 export type Technique = "Serigrafia" | "Vinilo" | "Sublimacion" | "DTF";
 export type PrintSize = "10x10" | "23x23" | "30x30";
 export type GarmentType = "Basica" | "Premium" | "Gama_media" | "Cliente";
@@ -223,5 +230,161 @@ export function calculateQuote(input: QuoteInput): QuoteResult {
     finalUnitPrices,
     order: { subtotal, vat, total: subtotal + vat },
     margin: { ratio: marginRatio, rating },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Multi-mark model (Anexo A of docs/blueprint.md) — for team/sportswear-style
+// orders where pecho and espalda each carry several independent marks instead
+// of one zone. Additive to the model above: calculateQuote/QuoteInput above
+// are untouched and still power the general-merchandise presupuestador.
+//
+// Rules (Anexo A, closed with the business):
+// - Pecho: up to 3 independent marks — bolsillo_izq (10x10), bolsillo_der
+//   (10x10), diafragma (~22x22, uses the existing 23x23 size tier).
+// - Espalda: up to 3 independent marks — nombre, dorsal, logo_espalda.
+// - Each active mark is billed in full (its own material+labor cost) even if
+//   production could share a pass — explicit business decision, not an
+//   optimization target.
+// - Main logo marks (pecho + logo_espalda) → DTF: cost = area_m2 × 11€/m²
+//   (DTF_metro; real supplier cost 9€, 2€/m² margin already baked in — do not
+//   lower this constant).
+// - Nombre → Vinilo (in-house), flat 2€/unit. Dorsal → Vinilo, flat 3€/unit.
+//   Both flat charges stack (5€/unit combined), added after the margin
+//   pipeline — the same treatment calculateQuote gives personalizedName.
+// - Mangas is unchanged from the model above: same PrintZone shape, same
+//   per-technique formulas, its own technique choice.
+export type DtfMarkPosition = "bolsillo_izq" | "bolsillo_der" | "diafragma" | "logo_espalda";
+
+export type DtfMark = {
+  position: DtfMarkPosition;
+  active: boolean;
+  size: PrintSize; // diafragma should use "23x23" (closest tier to ~22x22)
+};
+
+export const CARGO_NOMBRE_EQUIPACION = 2; // €/unit, vinilo — Anexo A
+export const CARGO_DORSAL_EQUIPACION = 3; // €/unit, vinilo — Anexo A
+
+export type TeamGarmentQuoteInput = {
+  pechoMarks: DtfMark[]; // up to 3: bolsillo_izq, bolsillo_der, diafragma
+  espaldaLogo?: DtfMark; // the 4th possible DTF mark, on the back
+  nombre: boolean; // +2€/ud
+  dorsal: boolean; // +3€/ud
+  mangas: PrintZone & { multiplier?: number; technique: Technique };
+  garmentType: GarmentType;
+  garmentUnitCost: number;
+  quantity: number;
+  extraMargin: number;
+};
+
+export type TeamGarmentQuoteResult = QuoteResult & {
+  activeDtfMarks: DtfMarkPosition[];
+  nombreDorsalSurcharge: number;
+};
+
+const INACTIVE_ZONE: PrintZone = { active: false, colors: 1, size: "10x10" };
+
+export function calculateTeamGarmentQuote(input: TeamGarmentQuoteInput): TeamGarmentQuoteResult {
+  const { quantity } = input;
+
+  const activeDtfMarks: DtfMark[] = [
+    ...input.pechoMarks.filter((m) => m.active),
+    ...(input.espaldaLogo?.active ? [input.espaldaLogo] : []),
+  ];
+
+  // Reuse the verified single-zone engine to get mangas' own material/labor/
+  // overhead contribution, instead of re-deriving its per-technique formulas.
+  // garmentUnitCost/extraMargin are zeroed out here — this shim is only read
+  // for its .costs.{material,labor,overhead}, everything else is discarded.
+  const mangasCosts = input.mangas.active
+    ? calculateQuote({
+        technique: input.mangas.technique,
+        pecho: INACTIVE_ZONE,
+        espalda: INACTIVE_ZONE,
+        mangas: input.mangas,
+        garmentType: input.garmentType,
+        garmentUnitCost: 0,
+        quantity,
+        extraMargin: 0,
+        personalizedName: false,
+      }).costs
+    : { material: 0, labor: 0, overhead: 0 };
+
+  const dtfMaterial = activeDtfMarks.reduce(
+    (sum, m) => sum + quantity * BASE_COSTS.DTF_metro * DTF_SIZE_FACTOR[m.size],
+    0
+  );
+  const dtfLabor = activeDtfMarks.length * (BASE_COSTS.DTF_tiempo_prenda / 3600) * quantity * BASE_COSTS.Coste_hora_base;
+  const dtfOverhead =
+    activeDtfMarks.length * (BASE_COSTS.DTF_tiempo_prenda / 3600) * quantity * BASE_COSTS.Coste_hora_fijos;
+
+  const garments = input.garmentUnitCost * quantity;
+  const material = mangasCosts.material + dtfMaterial;
+  const labor = mangasCosts.labor + dtfLabor;
+  const overhead = mangasCosts.overhead + dtfOverhead;
+  const consumables = BASE_COSTS.Consumibles_pedido;
+  const total = garments + material + labor + consumables + overhead;
+
+  const basePrices = {
+    min: total,
+    recommended: total * BASE_COSTS.Multiplicador_rec,
+    premium: total * BASE_COSTS.Multiplicador_prem,
+  };
+  const unitBasePrices = {
+    min: basePrices.min / quantity,
+    recommended: basePrices.recommended / quantity,
+    premium: basePrices.premium / quantity,
+  };
+
+  const qFactor = quantityFactor(quantity);
+  const marginMultiplier = 1 + input.extraMargin;
+  const finalPrices = {
+    min: mround(basePrices.min * marginMultiplier * qFactor, BASE_COSTS.Redondeo_precio),
+    recommended: mround(basePrices.recommended * marginMultiplier * qFactor, BASE_COSTS.Redondeo_precio),
+    premium: mround(basePrices.premium * marginMultiplier * qFactor, BASE_COSTS.Redondeo_precio),
+  };
+
+  // Floor: the highest minimum among techniques actually in play. Not part of
+  // the closed spec (which only defines per-mark pricing, not a combined
+  // floor) — this is a conservative interpretation, kept explicit so it's
+  // easy to revisit: never sell below the strictest applicable technique
+  // minimum rather than averaging or ignoring it.
+  const floors = [
+    activeDtfMarks.length > 0 ? minUnitPriceForTechnique("DTF", quantity) : 0,
+    input.mangas.active ? minUnitPriceForTechnique(input.mangas.technique, quantity) : 0,
+  ];
+  const techFloor = Math.max(...floors);
+
+  const nombreDorsalSurcharge =
+    (input.nombre ? CARGO_NOMBRE_EQUIPACION : 0) + (input.dorsal ? CARGO_DORSAL_EQUIPACION : 0);
+
+  const finalUnitPrices = {
+    min: mround(Math.max(finalPrices.min / quantity, techFloor) + nombreDorsalSurcharge, BASE_COSTS.Redondeo_precio),
+    recommended: mround(
+      Math.max(finalPrices.recommended / quantity, techFloor) + nombreDorsalSurcharge,
+      BASE_COSTS.Redondeo_precio
+    ),
+    premium: mround(
+      Math.max(finalPrices.premium / quantity, techFloor) + nombreDorsalSurcharge,
+      BASE_COSTS.Redondeo_precio
+    ),
+  };
+
+  const subtotal = finalUnitPrices.recommended * quantity;
+  const vat = mround(subtotal * BASE_COSTS.IVA_porcentaje, 0.01);
+
+  const marginRatio = (basePrices.recommended - total) / basePrices.recommended;
+  const rating = marginRatio < 0.25 ? "BAJO" : marginRatio < 0.4 ? "ACEPTABLE" : "MUY BUENO";
+
+  return {
+    costs: { garments, material, labor, consumables, overhead, total },
+    basePrices,
+    unitBasePrices,
+    finalPrices,
+    finalUnitPrices,
+    order: { subtotal, vat, total: subtotal + vat },
+    margin: { ratio: marginRatio, rating },
+    activeDtfMarks: activeDtfMarks.map((m) => m.position),
+    nombreDorsalSurcharge,
   };
 }

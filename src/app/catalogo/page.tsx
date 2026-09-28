@@ -3,7 +3,7 @@ import ProductCard from "@/components/ProductCard";
 import { getCategories, searchProducts } from "@/lib/products";
 
 export const metadata = {
-  title: "Catálogo | Onion and Back",
+  title: "Catálogo",
 };
 
 type SearchParams = { categoria?: string; q?: string; page?: string };
@@ -23,8 +23,8 @@ export default async function CatalogoPage({
   searchParams: Promise<SearchParams>;
 }) {
   const { categoria, q, page } = await searchParams;
-  const categories = getCategories();
-  const { products, total, page: currentPage, totalPages } = searchProducts({
+  const categories = await getCategories();
+  const { products, total, page: currentPage, totalPages } = await searchProducts({
     category: categoria,
     q,
     page: page ? parseInt(page, 10) : 1,

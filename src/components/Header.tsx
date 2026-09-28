@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import CartBadge from "@/components/CartBadge";
 
 const NAV_LINKS = [
   { href: "/catalogo", label: "Catálogo" },
@@ -35,12 +36,15 @@ export default function Header() {
           ))}
         </nav>
 
-        <Link
-          href="/presupuesto"
-          className="hidden shrink-0 rounded-full bg-brand px-5 py-2.5 font-display text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-dark sm:inline-flex sm:items-center"
-        >
-          Pide presupuesto
-        </Link>
+        <div className="flex shrink-0 items-center gap-3">
+          <Link
+            href="/presupuesto"
+            className="hidden rounded-full bg-brand px-5 py-2.5 font-display text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-dark sm:inline-flex sm:items-center"
+          >
+            Pide presupuesto
+          </Link>
+          <CartBadge />
+        </div>
 
         <details className="relative md:hidden">
           <summary

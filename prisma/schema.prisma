@@ -1,0 +1,256 @@
+// Onion and Back — database schema.
+// See docs/blueprint.md §4 for the design rationale.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  cliente
+  admin
+  operario
+}
+
+// Mirrors the business's own Leyenda_Estados sheet.
+enum OrderStatus {
+  pendiente_pago
+  pagado
+  en_diseno
+  en_aprobacion
+  en_produccion
+  terminado
+  entregado
+}
+
+enum OrderPriority {
+  vencido
+  critico
+  alta
+  media
+  baja
+}
+
+enum PaymentMethod {
+  tarjeta
+  bizum
+  transferencia
+}
+
+enum PaymentStatus {
+  pendiente
+  pagado
+  fallido
+}
+
+enum DiscountType {
+  un_solo_uso
+  cliente_habitual
+}
+
+model Supplier {
+  id         String    @id @default(uuid())
+  name       String    @unique
+  adapterKey String // key into src/lib/suppliers/*
+  active     Boolean   @default(true)
+  products   Product[]
+
+  @@map("suppliers")
+}
+
+model Category {
+  id       String     @id @default(uuid())
+  name     String
+  slug     String     @unique
+  parentId String?
+  parent   Category?  @relation("CategoryToParent", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryToParent")
+  products Product[]
+
+  @@map("categories")
+}
+
+// Cross-cutting tag, independent of Category: bodas, despedidas, colegios...
+model Occasion {
+  id       String            @id @default(uuid())
+  name     String            @unique
+  slug     String            @unique
+  products ProductOccasion[]
+
+  @@map("occasions")
+}
+
+model Product {
+  id           String            @id @default(uuid())
+  supplierId   String
+  supplier     Supplier          @relation(fields: [supplierId], references: [id])
+  supplierSku       String // rootmodel / código base del proveedor
+  name              String
+  description       String?
+  subcategory       String?
+  categoryId        String?
+  category          Category?         @relation(fields: [categoryId], references: [id])
+  basePrice         Decimal           @db.Decimal(10, 2)
+  material          String?
+  engravingTechnique String?
+  stock             Int               @default(0)
+  lastSyncedAt DateTime          @default(now())
+  variants     ProductVariant[]
+  images       ProductImage[]
+  occasions    ProductOccasion[]
+
+  @@unique([supplierId, supplierSku])
+  @@index([categoryId, supplierId])
+  @@map("products")
+}
+
+model ProductVariant {
+  id                String      @id @default(uuid())
+  productId         String
+  product           Product     @relation(fields: [productId], references: [id])
+  size              String?
+  color             String?
+  price             Decimal     @db.Decimal(10, 2)
+  stock             Int         @default(0)
+  supplierModelCode String      @unique // código real de esta variante en el proveedor (trazabilidad)
+  orderLines        OrderLine[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model ProductImage {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  url       String
+  position  Int     @default(0)
+
+  @@map("product_images")
+}
+
+model ProductOccasion {
+  productId  String
+  occasionId String
+  product    Product  @relation(fields: [productId], references: [id])
+  occasion   Occasion @relation(fields: [occasionId], references: [id])
+
+  @@id([productId, occasionId])
+  @@map("product_occasions")
+}
+
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  passwordHash     String?
+  name             String?
+  marketingConsent Boolean  @default(false)
+  role             UserRole @default(cliente)
+  createdAt        DateTime @default(now())
+  orders           Order[]
+
+  @@map("users")
+}
+
+model Order {
+  id                 String        @id @default(uuid())
+  userId             String?
+  user               User?         @relation(fields: [userId], references: [id])
+  status             OrderStatus   @default(pendiente_pago)
+  priority           OrderPriority @default(media)
+  paymentMethod      PaymentMethod
+  paymentStatus      PaymentStatus @default(pendiente)
+  deliveryTargetDate DateTime?
+  total              Decimal       @db.Decimal(10, 2)
+  // Facturación — obligatorio en todo pedido (particular o empresa/ayuntamiento).
+  invoiceName        String
+  invoiceTaxId       String
+  // Dirección de facturación — necesaria para la factura real y para el
+  // exportador de FactuSol (columnas Domicilio/Población/CP/Provincia de CLI).
+  invoiceAddress     String
+  invoicePostalCode  String
+  invoiceCity        String
+  invoiceProvince    String
+  // Contacto directo — obligatorio porque el checkout no exige cuenta de
+  // cliente (userId es opcional); es la única forma de avisar del pago.
+  contactEmail       String
+  contactPhone       String?
+  // Código de descuento aplicado, si lo hubo — ver src/lib/discounts.ts.
+  discountCodeId     String?
+  discountCode       DiscountCode? @relation(fields: [discountCodeId], references: [id])
+  discountAmount     Decimal       @default(0) @db.Decimal(10, 2)
+  createdAt          DateTime      @default(now())
+  lines              OrderLine[]
+
+  @@index([status, priority])
+  @@map("orders")
+}
+
+// Una línea de pedido — equivalente a la hoja "Pedidos" del Excel del negocio:
+// permite nombre/talla individual por unidad (equipaciones de equipo).
+model OrderLine {
+  id               String          @id @default(uuid())
+  orderId          String
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariantId String?
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  quantity         Int
+  individualName   String?
+  individualNumber String? // dorsal
+  unitPrice        Decimal         @db.Decimal(10, 2)
+  design           DesignConfig?
+
+  @@map("order_lines")
+}
+
+// Configuración del diseñador visual — una por línea de pedido.
+model DesignConfig {
+  id              String    @id @default(uuid())
+  orderLineId     String    @unique
+  orderLine       OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  logoFileUrl     String // URL en Cloudflare R2
+  markings        Json // lista de marcas: zona, posición, tamaño, técnica — ver Anexo A del blueprint
+  previewImageUrl String // mockup renderizado, usado en la hoja de trabajo imprimible
+
+  @@map("design_configs")
+}
+
+// Banners de campañas de temporada en la home (Día del Padre, Navidad...).
+// Se activan por rango de fechas — ver src/lib/promotions.ts.
+model Promotion {
+  id        String   @id @default(uuid())
+  title     String
+  subtitle  String?
+  imageUrl  String?
+  linkUrl   String
+  ctaLabel  String   @default("Ver ofertas")
+  startDate DateTime
+  endDate   DateTime
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("promotions")
+}
+
+// Códigos de descuento: un solo uso (campañas puntuales) o para clientes
+// habituales (reutilizable, atado opcionalmente a un email concreto).
+// Ver src/lib/discounts.ts.
+model DiscountCode {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  type          DiscountType
+  percentage    Int
+  maxUses       Int? // null = ilimitado
+  usesCount     Int          @default(0)
+  customerEmail String? // obligatorio (vía validate() del admin) solo para cliente_habitual
+  expiresAt     DateTime?
+  active        Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  orders        Order[]
+
+  @@map("discount_codes")
+}
