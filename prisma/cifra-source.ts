@@ -1,24 +1,37 @@
-// One-time CSV parsing for the Cifra import (prisma/import-cifra.ts).
-// Deliberately separate from src/lib/products.ts, which now reads from the
-// database — this file is only ever used to populate that database in the
-// first place (or to re-sync from a refreshed CSV export later).
-import fs from "node:fs";
-import path from "node:path";
-import Papa from "papaparse";
+// Live data source for the Cifra import (prisma/import-cifra.ts). Pulls the
+// confidential (wholesale/cost) pricelist from Cifra's own API — confirmed
+// live 2026-09-29, see .env.local for CIFRA_API_BASE_URL / CIFRA_API_TOKEN
+// (generated from "Mi cuenta" -> "Integraciones API" on cifra.es).
+//
+// Replaces the earlier one-time CSV parsing (data/cifra-products.csv, no
+// longer used) — the API gives the same shape plus structured color, extra
+// images, and a stock figure per SKU, all live instead of a stale export.
+//
+// Deliberately no "server-only" guard (unlike src/lib/gorfactory.ts) — this
+// file is only ever imported by prisma/import-cifra.ts, run directly via
+// `npx tsx` outside Next's server context, where that guard would throw.
 
-type CifraCsvRow = {
-  Modelo: string;
-  "Modelo raíz": string;
-  Nombre: string;
-  Descripción: string;
-  Categoría: string;
-  SubCategoría: string;
-  Imagen: string;
-  Stock: string;
-  Precio: string;
-  Material: string;
-  "Técnica Grabación": string;
-  Color: string;
+
+// Confidential-price endpoint (our cost) — confirmed live: `price_pvp` on
+// the separate /products endpoint is always exactly confidential_price × 2,
+// i.e. Cifra's own suggested retail already matches the ×2 margin we apply
+// ourselves elsewhere (Roly/Stamina) — so we read the net cost here and let
+// import-cifra.ts apply our own MARGEN constant, same architecture as
+// prisma/import-roly.ts, rather than trusting Cifra's own PVP field.
+type CifraApiItem = {
+  model: string;
+  rootmodel: string;
+  name: string;
+  description: string;
+  parent_category: string;
+  category: string;
+  image: string;
+  images: string[];
+  quantity: string;
+  confidential_price: string; // comma decimal, e.g. "0,61"
+  color: { id: string; name: string; rgb_hex: string } | null;
+  material: string;
+  tgrabacion: string;
 };
 
 export type CifraRow = {
@@ -30,7 +43,8 @@ export type CifraRow = {
   category: string;
   subcategory: string;
   image: string;
-  price: number;
+  images: string[];
+  price: number; // net/confidential cost — margin applied by the caller
   stock: number;
   material: string;
   engravingTechnique: string;
@@ -49,80 +63,65 @@ function slugify(input: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-function stripHtml(input: string) {
+function stripHtml(input: string | null | undefined) {
+  if (!input) return "";
   return input
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/g, " ")
-    // Cifra's export drops paragraph/list breaks, sometimes leaving an
-    // invisible word-joiner in their place ("bandera⁠Para pedidos..."), other
-    // times leaving no separator at all ("bañoIncorpora un gancho...").
-    // Word-joiner runs become a sentence break; a lowercase word of 4+
-    // letters running straight into a capital does too — long enough to
-    // avoid false positives on real abbreviations (mAh, cm, kg, V...) that
-    // also butt up against a capital letter.
-    .replace(/[⁠​﻿]+/g, ". ")
-    .replace(/\.(?=[A-ZÁÉÍÓÚÑ])/g, ". ")
-    .replace(/([a-zà-ÿñ]{4,})([A-ZÁÉÍÓÚÑ])/g, "$1. $2")
     .replace(/\s+/g, " ")
-    .replace(/\.\s*\./g, ".")
     .trim();
+}
+
+function parseNet(price: string | null | undefined): number {
+  if (!price) return 0;
+  const n = parseFloat(price.replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
 }
 
 const SIZE_TOKENS = new Set(["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "2XL", "3XL", "4XL", "5XL"]);
 
-function parseVariantSuffix(modelo: string): { size: string; colorLabel: string } {
-  const tokens = modelo.split("-").filter(Boolean);
-  const rest0 = tokens.length > 1 ? tokens.slice(1) : tokens;
-
-  if (rest0.length >= 2 && /^\d+$/.test(rest0[0]) && /^\d+$/.test(rest0[1])) {
-    return { size: `${rest0[0]}-${rest0[1]}`, colorLabel: rest0.slice(2).join("-") };
-  }
-
-  // The size token isn't always right after the prefix — some models carry an
-  // extra sub-model code first (e.g. "T-661-L-MA": prefix T, sub-model 661,
-  // size L, color MA). Scan the remaining tokens for a recognized size.
-  const sizeIdx = rest0.findIndex((t) => SIZE_TOKENS.has(t.toUpperCase()));
-  if (sizeIdx !== -1) {
-    return { size: rest0[sizeIdx].toUpperCase(), colorLabel: rest0.slice(sizeIdx + 1).join("-") };
-  }
-
-  return { size: "", colorLabel: rest0.join("-") };
+// The API gives structured color but not size — same suffix-scan fallback
+// as the old CSV parser, for the handful of Cifra items that are clothing.
+function parseSizeFromModel(model: string): string {
+  const tokens = model.split("-").filter(Boolean);
+  const rest = tokens.length > 1 ? tokens.slice(1) : tokens;
+  const idx = rest.findIndex((t) => SIZE_TOKENS.has(t.toUpperCase()));
+  return idx !== -1 ? rest[idx].toUpperCase() : "";
 }
 
-function fromCsvRow(row: CifraCsvRow): CifraRow {
-  const name = stripHtml(row.Nombre).trim();
-  const category = stripHtml(row.Categoría).trim() || FALLBACK_CATEGORY;
-  const { size, colorLabel } = parseVariantSuffix(row.Modelo);
+function fromApiItem(item: CifraApiItem): CifraRow {
+  const name = stripHtml(item.name);
+  const category = stripHtml(item.parent_category) || FALLBACK_CATEGORY;
   return {
-    slug: slugify(`${name}-${row.Modelo}`),
-    model: row.Modelo,
-    rootmodel: row["Modelo raíz"]?.trim() || row.Modelo,
+    slug: slugify(`${name}-${item.model}`),
+    model: item.model,
+    rootmodel: item.rootmodel?.trim() || item.model,
     name,
-    description: stripHtml(row.Descripción) || `${name}, personalizable con tu logo.`,
+    description: stripHtml(item.description) || `${name}, personalizable con tu logo.`,
     category,
-    subcategory: stripHtml(row.SubCategoría),
-    image: row.Imagen,
-    price: parseFloat(row.Precio) || 0,
-    stock: parseInt(row.Stock, 10) || 0,
-    material: stripHtml(row.Material),
-    engravingTechnique: row["Técnica Grabación"]?.trim() ?? "",
-    size,
-    colorLabel,
+    subcategory: stripHtml(item.category),
+    image: item.image,
+    images: item.images ?? [],
+    price: parseNet(item.confidential_price),
+    stock: parseInt(item.quantity, 10) || 0,
+    material: stripHtml(item.material),
+    engravingTechnique: item.tgrabacion?.trim() ?? "",
+    size: parseSizeFromModel(item.model),
+    colorLabel: item.color?.name ?? "",
   };
 }
 
 let cache: CifraRow[] | null = null;
 
-function loadAllRows(): CifraRow[] {
+async function loadAllRows(): Promise<CifraRow[]> {
   if (!cache) {
-    const csvPath = path.join(process.cwd(), "data", "cifra-products.csv");
-    const file = fs.readFileSync(csvPath, "utf-8");
-    const { data } = Papa.parse<CifraCsvRow>(file, {
-      header: true,
-      delimiter: ";",
-      skipEmptyLines: true,
-    });
-    cache = data.map(fromCsvRow).filter((p) => p.name && p.model);
+    const token = process.env.CIFRA_API_TOKEN;
+    const baseUrl = process.env.CIFRA_API_BASE_URL ?? "https://api.cifrashop.com";
+    if (!token) throw new Error("CIFRA_API_TOKEN no configurado en .env.local");
+    const res = await fetch(`${baseUrl}/tariff/${token}/es`);
+    if (!res.ok) throw new Error(`Cifra API falló: ${res.status} ${await res.text()}`);
+    const data = (await res.json()) as CifraApiItem[];
+    cache = data.map(fromApiItem).filter((p) => p.name && p.model);
   }
   return cache;
 }
@@ -133,8 +132,9 @@ function groupKey(p: CifraRow) {
 
 // One representative (highest-stock) row per (category, name) family, plus
 // every variant (including out-of-stock ones) that shares that family.
-export function getCifraFamilies(): { representative: CifraRow; variants: CifraRow[] }[] {
-  const rows = loadAllRows().filter((r) => r.stock > 0);
+export async function getCifraFamilies(): Promise<{ representative: CifraRow; variants: CifraRow[] }[]> {
+  const all = await loadAllRows();
+  const rows = all.filter((r) => r.stock > 0);
   const byKey = new Map<string, CifraRow[]>();
   for (const r of rows) {
     const key = groupKey(r);
@@ -145,7 +145,7 @@ export function getCifraFamilies(): { representative: CifraRow; variants: CifraR
 
   return Array.from(byKey.entries()).map(([key, familyReps]) => {
     const representative = familyReps.slice().sort((a, b) => b.stock - a.stock)[0];
-    const allVariants = loadAllRows().filter((r) => groupKey(r) === key);
+    const allVariants = all.filter((r) => groupKey(r) === key);
     return { representative, variants: allVariants };
   });
 }

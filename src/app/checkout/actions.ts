@@ -1,7 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { calculateQuote, type QuoteInput } from "@/lib/pricing";
+import { type QuoteInput } from "@/lib/pricing";
+import { personalizedUnitPrice, PERSONALIZED_EXTRA_MARGIN } from "@/lib/line-price";
 import { validateDiscountCode, type DiscountCheckResult } from "@/lib/discounts";
 
 export type CheckoutDesign = {
@@ -82,9 +83,16 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
     if (!variant) return { error: "Uno de los productos del carrito ya no está disponible." };
 
     const quantity = Math.max(1, Math.floor(item.quantity));
+    // Garment price and margin always come from the server (DB variant price,
+    // fixed business margin) — the browser only decides technique, zones and
+    // quantity, never a cost or margin.
+    const variantPrice = parseFloat(variant.price.toString());
     const unitPrice = item.marking
-      ? calculateQuote({ ...item.marking, quantity }).finalUnitPrices.recommended
-      : parseFloat(variant.price.toString());
+      ? personalizedUnitPrice(
+          { ...item.marking, quantity, extraMargin: PERSONALIZED_EXTRA_MARGIN, garmentUnitCost: variantPrice },
+          variantPrice
+        )
+      : variantPrice;
 
     lines.push({
       productVariantId: item.productVariantId,

@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { calculateQuote, type QuoteInput } from "@/lib/pricing";
+import { type QuoteInput } from "@/lib/pricing";
+import { personalizedUnitPrice } from "@/lib/line-price";
 
 // A cart line is either a plain "stock" purchase (marking: null, price is the
 // variant's own price) or a personalized one (marking holds the full
@@ -96,7 +97,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (i.id !== id) return i;
         if (!i.marking) return { ...i, quantity: safeQuantity };
         const marking = { ...i.marking, quantity: safeQuantity };
-        return { ...i, quantity: safeQuantity, marking, unitPrice: calculateQuote(marking).finalUnitPrices.recommended };
+        // marking.garmentUnitCost holds the garment's catalog price (variant.price).
+        return { ...i, quantity: safeQuantity, marking, unitPrice: personalizedUnitPrice(marking, marking.garmentUnitCost) };
       })
     );
   }, []);

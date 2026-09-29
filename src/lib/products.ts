@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { prisma } from "./db";
 import { slugify, type Product, type ProductDetail } from "./product-format";
+import { displayCategoryName } from "./category-display";
 
 // Product data layer — reads from the real database (multi-supplier ready).
 // One row here = one product family (e.g. "CAMISETA ALGODÓN NATUR" across
@@ -19,6 +20,7 @@ type DbProductWithRelations = {
   name: string;
   description: string | null;
   subcategory: string | null;
+  brand: string | null;
   material: string | null;
   engravingTechnique: string | null;
   basePrice: { toString(): string };
@@ -33,8 +35,9 @@ function toProduct(p: DbProductWithRelations): Product {
     slug: slugify(`${p.name}-${p.supplierSku}`),
     name: p.name,
     description: p.description ?? "",
-    category: p.category?.name ?? FALLBACK_CATEGORY,
+    category: p.category?.name ? displayCategoryName(p.category.name) : FALLBACK_CATEGORY,
     subcategory: p.subcategory ?? "",
+    brand: p.brand ?? "",
     image: p.images[0]?.url ?? "",
     price: parseFloat(p.basePrice.toString()),
     stock: p.stock,
@@ -53,10 +56,19 @@ export async function getTopCategories(limit = 8) {
     where: { name: { not: FALLBACK_CATEGORY }, products: { some: { stock: { gt: 0 } } } },
     include: { _count: { select: { products: { where: { stock: { gt: 0 } } } } } },
   });
-  return categories
-    .map((c) => ({ name: c.name, slug: c.slug, count: c._count.products }))
+  const top = categories
+    .map((c) => ({ id: c.id, name: displayCategoryName(c.name), slug: c.slug, count: c._count.products }))
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
+
+  const minPrices = await prisma.product.groupBy({
+    by: ["categoryId"],
+    where: { categoryId: { in: top.map((c) => c.id) }, stock: { gt: 0 } },
+    _min: { basePrice: true },
+  });
+  const priceByCategoryId = new Map(minPrices.map((m) => [m.categoryId, m._min.basePrice ? parseFloat(m._min.basePrice.toString()) : null]));
+
+  return top.map((c) => ({ ...c, fromPrice: priceByCategoryId.get(c.id) ?? null }));
 }
 
 export async function getCategories() {
@@ -64,8 +76,20 @@ export async function getCategories() {
     include: { _count: { select: { products: { where: { stock: { gt: 0 } } } } } },
   });
   return categories
-    .map((c) => ({ name: c.name, slug: c.slug, count: c._count.products }))
+    .map((c) => ({ name: displayCategoryName(c.name), slug: c.slug, count: c._count.products }))
     .filter((c) => c.count > 0)
+    .sort((a, b) => b.count - a.count);
+}
+
+export async function getBrands() {
+  const rows = await prisma.product.groupBy({
+    by: ["brand"],
+    where: { stock: { gt: 0 }, brand: { not: null } },
+    _count: { _all: true },
+  });
+  return rows
+    .filter((r) => r.brand)
+    .map((r) => ({ name: r.brand as string, slug: slugify(r.brand as string), count: r._count._all }))
     .sort((a, b) => b.count - a.count);
 }
 
@@ -128,10 +152,37 @@ export async function getAllProductSlugsForSitemap(): Promise<{ slug: string; la
   }));
 }
 
-export async function searchProducts(opts: { category?: string; q?: string; page?: number }) {
+// Fixed priority order agreed with the business (docs/todo-hero-y-catalogo-2026-09-29.md)
+// — reflects real order volume/revenue, not alphabetical. "weight" only
+// controls visual size in the homepage nav (1-3 bigger, 7-8 smaller).
+export const OCCASION_ORDER = [
+  { slug: "despedidas", name: "Despedidas de soltero/a", weight: "lg" as const },
+  { slug: "penyas-fiestas", name: "Peñas y fiestas de pueblo", weight: "lg" as const },
+  { slug: "empresas-equipos", name: "Empresas y equipos", weight: "lg" as const },
+  { slug: "regalos-personalizados", name: "Regalos personalizados", weight: "md" as const },
+  { slug: "navidad", name: "Navidad", weight: "md" as const },
+  { slug: "equipacion-deportiva", name: "Equipación deportiva / clubs", weight: "md" as const },
+  { slug: "comuniones", name: "Comuniones", weight: "sm" as const },
+  { slug: "bodas", name: "Bodas", weight: "sm" as const },
+];
+
+export async function getOccasions() {
+  const occasions = await prisma.occasion.findMany({
+    include: { _count: { select: { products: true } } },
+  });
+  const bySlug = new Map(occasions.map((o) => [o.slug, o]));
+  return OCCASION_ORDER.map((o) => ({
+    ...o,
+    count: bySlug.get(o.slug)?._count.products ?? 0,
+  }));
+}
+
+export async function searchProducts(opts: { category?: string; occasion?: string; brand?: string; q?: string; page?: number }) {
   const where = {
     stock: { gt: 0 },
     ...(opts.category ? { category: { slug: opts.category } } : {}),
+    ...(opts.occasion ? { occasions: { some: { occasion: { slug: opts.occasion } } } } : {}),
+    ...(opts.brand ? { brand: opts.brand } : {}),
     ...(opts.q
       ? {
           OR: [
@@ -150,6 +201,10 @@ export async function searchProducts(opts: { category?: string; q?: string; page
   const products = await prisma.product.findMany({
     where,
     include: productInclude,
+    // No real "bestseller" data yet — highest stock first is a reasonable
+    // stand-in default (mainstream staples tend to be stocked deeper than
+    // niche industrial items) rather than the supplier's raw table order.
+    orderBy: { stock: "desc" },
     skip: (page - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
   });

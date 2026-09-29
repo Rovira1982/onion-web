@@ -3,12 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart";
-import {
-  calculateQuote,
-  type PrintSize,
-  type PrintZone,
-  type Technique,
-} from "@/lib/pricing";
+import { type PrintSize, type PrintZone, type Technique } from "@/lib/pricing";
+import { personalizedUnitPrice, PERSONALIZED_EXTRA_MARGIN } from "@/lib/line-price";
 import LogoPositioner, { type ZoneTransforms } from "@/components/LogoPositioner";
 import { subirLogo } from "@/app/producto/[slug]/actions";
 import {
@@ -54,7 +50,8 @@ async function renderZonesPreview(
   canvas.width = panel * Math.max(zones.length, 1);
   canvas.height = panel;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#F4F1EC";
+  const mutedColor = getComputedStyle(document.documentElement).getPropertyValue("--color-muted").trim() || "#faf5f0";
+  ctx.fillStyle = mutedColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const logo = await loadImage(logoUrl);
@@ -85,11 +82,6 @@ async function renderZonesPreview(
 
   return canvas.toDataURL("image/png");
 }
-
-// Fixed business margin — the customer never sets their own margin, this
-// mirrors the default already used across the presupuestador (Excel's own
-// default, Margen_extra = 0.7).
-const EXTRA_MARGIN = 0.7;
 
 const TECHNIQUES: { value: Technique; label: string }[] = [
   { value: "DTF", label: "DTF (transferencia digital)" },
@@ -212,17 +204,50 @@ function ZoneToggle({
   );
 }
 
+// The "Con personalización" configurator below only has real mockup photos
+// for T-shirt/hoodie-shaped garments (pecho/espalda/mangas) — see
+// src/lib/garment-mockup.ts. Showing it on a gorra, taza or llavero would
+// display the wrong silhouette and zones (flagged in
+// docs/auditoria-ux-2026-09-29.md, hallazgo "Zonas de personalización no se
+// adaptan al tipo de producto"). Until we have mockups per category, gate it
+// to categories where the torso zones genuinely apply; everything else
+// falls back to the existing "pide presupuesto por email" link below.
+const GARMENT_KEYWORDS = [
+  "camiseta",
+  "camisa",
+  "sudadera",
+  "polo",
+  "chaqueta",
+  "chaleco",
+  "chándal",
+  "chandal",
+  "jersey",
+  "softshell",
+  "cortavientos",
+  "parka",
+  "cazadora",
+  "top",
+];
+
+function isGarmentCategory(category: string): boolean {
+  const lower = category.toLowerCase();
+  return GARMENT_KEYWORDS.some((k) => lower.includes(k));
+}
+
 export default function AddToCartForm({
   productSlug,
   productName,
   image,
   variant,
+  category,
 }: {
   productSlug: string;
   productName: string;
   image: string;
   variant: { id: string; size: string; color: string; price: number; stock: number };
+  category: string;
 }) {
+  const canPersonalize = isGarmentCategory(category);
   const { addItem } = useCart();
   const router = useRouter();
 
@@ -270,7 +295,7 @@ export default function AddToCartForm({
             garmentType: "Cliente" as const,
             garmentUnitCost: variant.price,
             quantity,
-            extraMargin: EXTRA_MARGIN,
+            extraMargin: PERSONALIZED_EXTRA_MARGIN,
             personalizedName: false,
           }
         : null,
@@ -280,7 +305,7 @@ export default function AddToCartForm({
   const unitPrice = useMemo(() => {
     if (!marking) return variant.price;
     if (noZoneActive || needsConsultation) return null;
-    return calculateQuote(marking).finalUnitPrices.recommended;
+    return personalizedUnitPrice(marking, variant.price);
   }, [marking, noZoneActive, needsConsultation, variant.price]);
 
   async function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -350,28 +375,35 @@ export default function AddToCartForm({
 
   return (
     <div className="mt-6 rounded-2xl border border-border bg-white p-5">
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setMode("stock")}
-          className={`flex-1 cursor-pointer rounded-full border px-4 py-2 font-display text-xs font-bold transition-colors ${
-            mode === "stock" ? "border-brand bg-brand text-white" : "border-border text-ink-soft hover:border-brand"
-          }`}
-        >
-          Pedido de stock
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("personalizado")}
-          className={`flex-1 cursor-pointer rounded-full border px-4 py-2 font-display text-xs font-bold transition-colors ${
-            mode === "personalizado" ? "border-brand bg-brand text-white" : "border-border text-ink-soft hover:border-brand"
-          }`}
-        >
-          Con personalización
-        </button>
-      </div>
+      {canPersonalize ? (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setMode("stock")}
+            className={`flex-1 cursor-pointer rounded-full border px-4 py-2 font-display text-xs font-bold transition-colors ${
+              mode === "stock" ? "border-brand bg-brand text-white" : "border-border text-ink-soft hover:border-brand"
+            }`}
+          >
+            Pedido de stock
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("personalizado")}
+            className={`flex-1 cursor-pointer rounded-full border px-4 py-2 font-display text-xs font-bold transition-colors ${
+              mode === "personalizado" ? "border-brand bg-brand text-white" : "border-border text-ink-soft hover:border-brand"
+            }`}
+          >
+            Con personalización
+          </button>
+        </div>
+      ) : (
+        <p className="text-sm text-ink-soft">
+          ¿Quieres este artículo personalizado con tu logo? Este configurador aún no está preparado para esta
+          categoría — usa el botón de "pedir presupuesto por email" más abajo y te lo preparamos a medida.
+        </p>
+      )}
 
-      {mode === "stock" ? (
+      {mode === "stock" || !canPersonalize ? (
         <p className="mt-4 text-sm text-ink-soft">El producto tal cual, sin marcaje. {money(variant.price)}/ud.</p>
       ) : (
         <div className="mt-4 flex flex-col gap-3">

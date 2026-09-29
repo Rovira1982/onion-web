@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getTopCategories } from "@/lib/products";
+import CookieSettingsButton from "@/components/CookieSettingsButton";
 
 export default async function Footer() {
   const categories = await getTopCategories(10);
@@ -60,16 +61,51 @@ export default async function Footer() {
               Contacto
             </h3>
             <ul className="mt-4 space-y-2 text-sm text-white/70">
-              <li>hola@onionandback.com</li>
-              <li>+34 900 000 000</li>
+              <li>
+                <a href="mailto:info@onionandback.com" className="hover:text-white">
+                  info@onionandback.com
+                </a>
+              </li>
+              <li>
+                <a href="tel:+34616114095" className="hover:text-white">
+                  +34 616 11 40 95
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://wa.me/34616114095"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white"
+                >
+                  WhatsApp
+                </a>
+              </li>
             </ul>
           </div>
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-white/50 sm:flex-row">
           <p>© {new Date().getFullYear()} Onion and Back. Todos los derechos reservados.</p>
-          <p>Precios sin IVA. Personalización incluida según artículo.</p>
+          <p>Precios sin IVA. La personalización se cobra aparte, según técnica y cantidad.</p>
         </div>
+        <ul className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-white/50 sm:justify-start">
+          <li>
+            <Link href="/aviso-legal" className="hover:text-white">Aviso legal</Link>
+          </li>
+          <li>
+            <Link href="/privacidad" className="hover:text-white">Política de privacidad</Link>
+          </li>
+          <li>
+            <Link href="/cookies" className="hover:text-white">Política de cookies</Link>
+          </li>
+          <li>
+            <Link href="/terminos" className="hover:text-white">Términos y condiciones</Link>
+          </li>
+          <li>
+            <CookieSettingsButton className="cursor-pointer hover:text-white" />
+          </li>
+        </ul>
       </div>
     </footer>
   );

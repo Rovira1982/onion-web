@@ -1,5 +1,5 @@
-// One-time import: reads the Roly/Stamina "Maestro de Artículos" Excel
-// exports (via prisma/_extract-roly-xlsx.py -> prisma/_roly-{rol,sta}.json)
+// Live import: pulls Roly/Stamina catalog + wholesale pricelist + real
+// warehouse stock straight from the Gorfactory API (src/lib/gorfactory.ts)
 // and writes them into the database. Safe to re-run — everything is
 // upserted by a stable key (supplier+SKU for products, supplierModelCode
 // for variants), same pattern as prisma/import-cifra.ts.
@@ -7,51 +7,84 @@
 // Roly = textile (top category "Ropa Laboral"); Stamina = general
 // promotional gifts (top category "Regalo Promocional", like Cifra).
 //
-// These master files don't include live stock — every variant gets a
-// fixed placeholder stock (STOCK_PLACEHOLDER) so products are visible on
-// the site now; swap for real figures once Gorfactory's API is active.
+// Replaces the earlier one-time Excel import (_roly-{rol,sta}.json, no
+// longer generated): the Gorfactory API is confirmed live as of 2026-09-29,
+// with real per-SKU price (getPricelist) and stock (getUserStock, warehouse
+// "01" — the only warehouse code that has worked so far).
 //
 // Run with: npx tsx prisma/import-roly.ts
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import fs from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const MARGEN = 1.4; // BASE_COSTS.Multiplicador_rec de src/lib/pricing.ts
-const STOCK_PLACEHOLDER = 500;
+const MARGEN = 2; // Gorfactory es precio de mayorista: ×2 sobre coste (el ×1.4 de pricing.ts se queda corto en prenda lisa/regalo)
+const WAREHOUSE = "01"; // único código de almacén confirmado en pruebas en vivo
 
-type RolRow = {
-  PRODUCTCODE: string;
-  MODELCODE: string;
-  MODELNAME: string | null;
-  DESCRIPTION: string | null;
-  COMPOSITION: string | null;
-  FAMILIE: string | null;
-  SIZE: string | null;
-  COLOR: string | null;
-  PRODUCTIMAGE: string | null;
-  MODELIMAGE: string | null;
-  "PRICE UNIT": string | number | null;
+// Inline API client (not importing src/lib/gorfactory.ts, which is guarded
+// with "server-only" and can't be loaded by a plain tsx script) — same
+// pattern as prisma/import-toptex.ts's own inline TopTex client.
+const GF_BASE_URL = process.env.GORFACTORY_BASE_URL ?? "https://clientsws.gorfactory.es:2096";
+let gfToken: string | null = null;
+
+async function gfLogin(): Promise<string> {
+  const form = new FormData();
+  form.set("username", process.env.GORFACTORY_USERNAME!);
+  form.set("password", process.env.GORFACTORY_PASSWORD!);
+  const res = await fetch(`${GF_BASE_URL}/api/v1/login`, { method: "POST", body: form });
+  if (!res.ok) throw new Error(`Gorfactory login falló: ${res.status} ${await res.text()}`);
+  const { token } = JSON.parse(await res.text()) as { token: string };
+  return token;
+}
+
+async function gfGet(path: string) {
+  if (!gfToken) gfToken = await gfLogin();
+  const res = await fetch(`${GF_BASE_URL}${path}`, { headers: { Authorization: `Bearer ${gfToken}` } });
+  if (!res.ok) throw new Error(`GET ${path} falló: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+async function gfPost(path: string, form: FormData) {
+  if (!gfToken) gfToken = await gfLogin();
+  const res = await fetch(`${GF_BASE_URL}${path}`, { method: "POST", body: form, headers: { Authorization: `Bearer ${gfToken}` } });
+  if (!res.ok) throw new Error(`POST ${path} falló: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+type GorfactoryCatalogItem = {
+  itemcode: string;
+  modelcode: string;
+  modelname: string;
+  description: string;
+  composition: string;
+  family: string;
+  sizename: string;
+  colorname: string;
+  productimage: string;
+  modelimage: string;
 };
 
-type StaRow = {
-  PRODUCTCODE: string;
-  MODELCODE: string;
-  MODELNAME: string | null;
-  DESCRIPTION: string | null;
-  COMPOSITION: string | null;
-  FAMILIE: string | null;
-  SIZE: string | null;
-  COLOR: string | null;
-  PRODUCTIMAGE: string | null;
-  MODELIMAGE: string | null;
-  "PRICE < 500 UNITS": string | number | null;
-};
+function getCatalog(params: { brand: string }) {
+  return gfGet(`/api/v1/item/getcatalog?lang=es-ES&brand=${params.brand}`) as Promise<{ item: GorfactoryCatalogItem[] }>;
+}
+
+function getPricelist(params: { brand: string }) {
+  const form = new FormData();
+  form.set("brand", params.brand);
+  form.set("includeoutlet", "0");
+  return gfPost(`/api/v1/item/pricelist`, form) as Promise<{ pricelist: { productcode: string; price_unit: number }[] }>;
+}
+
+function getUserStock(params: { brand: string; whscode: string }) {
+  const form = new FormData();
+  form.set("brand", params.brand);
+  form.set("whscode", params.whscode);
+  return gfPost(`/api/v1/stock/getuserstock`, form) as Promise<{ stock: { sku: string; onhand: string }[] | null }>;
+}
 
 function slugify(input: string) {
   return input
@@ -62,31 +95,26 @@ function slugify(input: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-function toNumber(v: string | number | null | undefined): number {
-  if (v == null) return 0;
-  const n = typeof v === "number" ? v : parseFloat(v);
-  return Number.isFinite(n) ? n : 0;
-}
+async function importBrand(opts: { brand: string; supplierName: string; topCategory: string }) {
+  console.log(`\nDescargando ${opts.supplierName} desde la API de Gorfactory...`);
 
-async function importCatalog<T extends { PRODUCTCODE: string; MODELCODE: string; MODELNAME: string | null }>(opts: {
-  supplierName: string;
-  adapterKey: string;
-  topCategory: string;
-  rows: T[];
-  netPriceOf: (row: T) => number;
-  descriptionOf: (row: T) => string | null;
-  compositionOf: (row: T) => string | null;
-  familieOf: (row: T) => string | null;
-  sizeOf: (row: T) => string | null;
-  colorOf: (row: T) => string | null;
-  imageOf: (row: T) => string | null;
-}) {
-  console.log(`\nImportando ${opts.supplierName} (${opts.rows.length} filas)...`);
+  const [catalogRes, priceRes, stockRes] = await Promise.all([
+    getCatalog({ brand: opts.brand }),
+    getPricelist({ brand: opts.brand }),
+    getUserStock({ brand: opts.brand, whscode: WAREHOUSE }),
+  ]);
+
+  const priceBySku = new Map(priceRes.pricelist.map((p) => [p.productcode, Number(p.price_unit) || 0]));
+  const stockBySku = new Map((stockRes.stock ?? []).map((s) => [s.sku, Number(s.onhand) || 0]));
+
+  console.log(
+    `${opts.supplierName}: ${catalogRes.item.length} filas de catálogo, ${priceBySku.size} precios, ${stockBySku.size} stocks.`
+  );
 
   const supplier = await prisma.supplier.upsert({
     where: { name: opts.supplierName },
     update: {},
-    create: { name: opts.supplierName, adapterKey: opts.adapterKey },
+    create: { name: opts.supplierName, adapterKey: "gorfactory" },
   });
 
   const topCategory = await prisma.category.upsert({
@@ -109,12 +137,12 @@ async function importCatalog<T extends { PRODUCTCODE: string; MODELCODE: string;
     return cat.id;
   }
 
-  const byModel = new Map<string, T[]>();
-  for (const row of opts.rows) {
-    if (!row.PRODUCTCODE || !row.MODELCODE) continue;
-    const list = byModel.get(row.MODELCODE) ?? [];
+  const byModel = new Map<string, GorfactoryCatalogItem[]>();
+  for (const row of catalogRes.item) {
+    if (!row.itemcode || !row.modelcode) continue;
+    const list = byModel.get(row.modelcode) ?? [];
     list.push(row);
-    byModel.set(row.MODELCODE, list);
+    byModel.set(row.modelcode, list);
   }
 
   let done = 0;
@@ -123,31 +151,34 @@ async function importCatalog<T extends { PRODUCTCODE: string; MODELCODE: string;
 
   for (const [modelCode, rows] of models) {
     const rep = rows[0];
-    const netPrices = rows.map(opts.netPriceOf).filter((p) => p > 0);
+    const netPrices = rows.map((r) => priceBySku.get(r.itemcode) ?? 0).filter((p) => p > 0);
     const cheapestNet = netPrices.length > 0 ? Math.min(...netPrices) : 0;
     const basePrice = Math.round(cheapestNet * MARGEN * 100) / 100;
-    const categoryId = await categoryIdFor(opts.familieOf(rep) ?? "Otros artículos");
-    const primaryImage = opts.imageOf(rep) ?? "";
+    const totalStock = rows.reduce((sum, r) => sum + (stockBySku.get(r.itemcode) ?? 0), 0);
+    const categoryId = await categoryIdFor(rep.family ?? "Otros artículos");
+    const primaryImage = rep.modelimage || rep.productimage || "";
 
     const product = await prisma.product.upsert({
       where: { supplierId_supplierSku: { supplierId: supplier.id, supplierSku: modelCode } },
       update: {
-        name: rep.MODELNAME || modelCode,
-        description: opts.descriptionOf(rep) || "",
-        material: opts.compositionOf(rep) || null,
+        name: rep.modelname || modelCode,
+        description: rep.description || "",
+        brand: opts.supplierName,
+        material: rep.composition || null,
         basePrice,
-        stock: STOCK_PLACEHOLDER,
+        stock: totalStock,
         categoryId,
         lastSyncedAt: new Date(),
       },
       create: {
         supplierId: supplier.id,
         supplierSku: modelCode,
-        name: rep.MODELNAME || modelCode,
-        description: opts.descriptionOf(rep) || "",
-        material: opts.compositionOf(rep) || null,
+        name: rep.modelname || modelCode,
+        description: rep.description || "",
+        brand: opts.supplierName,
+        material: rep.composition || null,
         basePrice,
-        stock: STOCK_PLACEHOLDER,
+        stock: totalStock,
         categoryId,
       },
     });
@@ -160,24 +191,25 @@ async function importCatalog<T extends { PRODUCTCODE: string; MODELCODE: string;
     }
 
     for (const row of rows) {
-      const net = opts.netPriceOf(row);
+      const net = priceBySku.get(row.itemcode) ?? 0;
       const price = Math.round(net * MARGEN * 100) / 100;
+      const stock = stockBySku.get(row.itemcode) ?? 0;
       await prisma.productVariant.upsert({
-        where: { supplierModelCode: row.PRODUCTCODE },
+        where: { supplierModelCode: row.itemcode },
         update: {
-          size: opts.sizeOf(row) || null,
-          color: opts.colorOf(row) || null,
+          size: row.sizename || null,
+          color: row.colorname || null,
           price,
-          stock: STOCK_PLACEHOLDER,
+          stock,
           productId: product.id,
         },
         create: {
           productId: product.id,
-          size: opts.sizeOf(row) || null,
-          color: opts.colorOf(row) || null,
+          size: row.sizename || null,
+          color: row.colorname || null,
           price,
-          stock: STOCK_PLACEHOLDER,
-          supplierModelCode: row.PRODUCTCODE,
+          stock,
+          supplierModelCode: row.itemcode,
         },
       });
       variantsWritten++;
@@ -193,37 +225,16 @@ async function importCatalog<T extends { PRODUCTCODE: string; MODELCODE: string;
 }
 
 async function main() {
-  const rol = JSON.parse(fs.readFileSync("prisma/_roly-rol.json", "utf-8")) as RolRow[];
-  const sta = JSON.parse(fs.readFileSync("prisma/_roly-sta.json", "utf-8")) as StaRow[];
-
-  await importCatalog({
-    supplierName: "Roly",
-    adapterKey: "gorfactory",
-    topCategory: "Ropa Laboral",
-    rows: rol,
-    netPriceOf: (r) => toNumber(r["PRICE UNIT"]),
-    descriptionOf: (r) => r.DESCRIPTION,
-    compositionOf: (r) => r.COMPOSITION,
-    familieOf: (r) => r.FAMILIE,
-    sizeOf: (r) => r.SIZE,
-    colorOf: (r) => r.COLOR,
-    imageOf: (r) => r.MODELIMAGE || r.PRODUCTIMAGE,
-  });
-
-  await importCatalog({
-    supplierName: "Stamina",
-    adapterKey: "gorfactory",
-    topCategory: "Regalo Promocional",
-    rows: sta,
-    netPriceOf: (r) => toNumber(r["PRICE < 500 UNITS"]),
-    descriptionOf: (r) => r.DESCRIPTION,
-    compositionOf: (r) => r.COMPOSITION,
-    familieOf: (r) => r.FAMILIE,
-    sizeOf: (r) => r.SIZE,
-    colorOf: (r) => r.COLOR,
-    imageOf: (r) => r.MODELIMAGE || r.PRODUCTIMAGE,
-  });
-
+  // Optional CLI filter — `npx tsx prisma/import-roly.ts stamina` runs only
+  // that brand, useful to avoid burning extra API calls against Gorfactory's
+  // daily rate limit when re-running just one brand (e.g. after a 429).
+  const only = process.argv[2]?.toLowerCase();
+  if (!only || only === "roly") {
+    await importBrand({ brand: "roly", supplierName: "Roly", topCategory: "Ropa Laboral" });
+  }
+  if (!only || only === "stamina") {
+    await importBrand({ brand: "stamina", supplierName: "Stamina", topCategory: "Regalo Promocional" });
+  }
   await prisma.$disconnect();
 }
 

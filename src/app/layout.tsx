@@ -3,6 +3,8 @@ import { Nunito_Sans, Rubik } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import CookieBanner from "@/components/CookieBanner";
+import MetaPixel from "@/components/MetaPixel";
 import { CartProvider } from "@/lib/cart";
 
 const nunitoSans = Nunito_Sans({
@@ -41,6 +43,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <main className="flex-1">{children}</main>
           <Footer />
         </CartProvider>
+        <CookieBanner />
+        <MetaPixel />
       </body>
     </html>
   );

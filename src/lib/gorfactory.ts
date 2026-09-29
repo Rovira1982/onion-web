@@ -47,9 +47,19 @@ async function login(): Promise<string> {
     throw new Error(`Gorfactory login falló: ${res.status} ${await res.text()}`);
   }
 
-  // The API returns the raw JWT string (or a JSON string) as the body.
+  // The API returns { "token": "<jwt>" } — confirmed live 2026-09-29 (was
+  // previously assumed to be a bare/JSON-quoted JWT string, which sent the
+  // whole envelope as the bearer token and made every call 401).
   const raw = (await res.text()).trim();
-  const token = raw.startsWith('"') ? JSON.parse(raw) : raw;
+  let token: string;
+  try {
+    token = JSON.parse(raw).token;
+  } catch {
+    token = raw.startsWith('"') ? JSON.parse(raw) : raw;
+  }
+  if (!token) {
+    throw new Error(`Gorfactory login: respuesta sin token: ${raw.slice(0, 200)}`);
+  }
   return token;
 }
 
@@ -113,33 +123,67 @@ export type GorfactoryCategory = {
 };
 
 export function getCategories(params: { lang?: string; brand: string }) {
-  const q = new URLSearchParams({ lang: params.lang ?? "es", brand: params.brand });
+  const q = new URLSearchParams({ lang: params.lang ?? "es-ES", brand: params.brand });
   return gorfactoryFetch<GorfactoryCategory[]>(`/api/v1/item/categories?${q}`);
 }
 
 export function getCategoriesTree(params: { lang?: string; brand: string; category?: string }) {
-  const q = new URLSearchParams({ lang: params.lang ?? "es", brand: params.brand });
+  const q = new URLSearchParams({ lang: params.lang ?? "es-ES", brand: params.brand });
   if (params.category) q.set("category", params.category);
   return gorfactoryFetch(`/api/v1/item/categories/tree?${q}`);
 }
 
+// One row per SKU (product+size+color) — itemcode is the unique SKU, same
+// role as productcode in the pricelist and sku in getuserstock.
+export type GorfactoryCatalogItem = {
+  itemcode: string;
+  itemname: string;
+  modelcode: string;
+  modelname: string;
+  description: string;
+  composition: string;
+  family: string;
+  sizename: string;
+  colorname: string;
+  productimage: string;
+  modelimage: string;
+  brand: string;
+  [key: string]: unknown;
+};
+
 export function getCatalog(params: { lang?: string; brand?: string; category?: string }) {
   const q = new URLSearchParams();
-  q.set("lang", params.lang ?? "es");
+  q.set("lang", params.lang ?? "es-ES");
   if (params.brand) q.set("brand", params.brand);
   if (params.category) q.set("category", params.category);
-  return gorfactoryFetch(`/api/v1/item/getcatalog?${q}`);
+  return gorfactoryFetch<{ item: GorfactoryCatalogItem[] }>(`/api/v1/item/getcatalog?${q}`);
 }
 
 export function getItem(params: { itemcode: string; lang?: string }) {
-  const q = new URLSearchParams({ itemcode: params.itemcode, lang: params.lang ?? "es" });
+  const q = new URLSearchParams({ itemcode: params.itemcode, lang: params.lang ?? "es-ES" });
   return gorfactoryFetch(`/api/v1/item/get?${q}`);
 }
 
-export function getUserStock(body: Record<string, unknown> = {}) {
-  return gorfactoryFetch(`/api/v1/stock/getuserstock`, {
+export type GorfactoryStockItem = {
+  sku: string;
+  description: string;
+  onhand: string; // numeric string, e.g. "140"
+  incoming: string | null;
+  state: string;
+  canteco: string;
+  brand: string;
+};
+
+export function getUserStock(params: { whscode?: string; brand?: string } = {}) {
+  // multipart/form-data, like pricelist — the API rejects a JSON body here.
+  // whscode is required by the API (warehouse code, e.g. "01" — the main
+  // one; confirmed live, other codes 400 with "Warehouse wrong code").
+  const form = new FormData();
+  if (params.whscode) form.set("whscode", params.whscode);
+  if (params.brand) form.set("brand", params.brand);
+  return gorfactoryFetch<{ stock: GorfactoryStockItem[] | null }>(`/api/v1/stock/getuserstock`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: form,
   });
 }
 
@@ -149,13 +193,13 @@ export function getModelsIdList(params: { brand: string }) {
 }
 
 export function getCategoryInfo(params: { lang?: string; category: string }) {
-  const q = new URLSearchParams({ lang: params.lang ?? "es", category: params.category });
+  const q = new URLSearchParams({ lang: params.lang ?? "es-ES", category: params.category });
   return gorfactoryFetch(`/api/v1/item/categories/get?${q}`);
 }
 
 export function getModels(params: { lang?: string; brand?: string } = {}) {
   const q = new URLSearchParams();
-  q.set("lang", params.lang ?? "es");
+  q.set("lang", params.lang ?? "es-ES");
   if (params.brand) q.set("brand", params.brand);
   return gorfactoryFetch(`/api/v1/model/get?${q}`);
 }
@@ -202,12 +246,12 @@ export type GorfactoryPrintTechnique = {
 // param in the spec). Same shape as printtechniques below; kept as two
 // functions to match the API's own two distinct endpoints.
 export function getPrintPrices(params: { lang?: string } = {}) {
-  const q = new URLSearchParams({ lang: params.lang ?? "es" });
+  const q = new URLSearchParams({ lang: params.lang ?? "es-ES" });
   return gorfactoryFetch<{ printprices: GorfactoryPrintTechnique[] }>(`/api/v1/item/printprices?${q}`);
 }
 
 export function getPrintTechniques(params: { lang?: string } = {}) {
-  const q = new URLSearchParams({ lang: params.lang ?? "es" });
+  const q = new URLSearchParams({ lang: params.lang ?? "es-ES" });
   return gorfactoryFetch<{ printprices: GorfactoryPrintTechnique[] }>(`/api/v1/item/printtechniques?${q}`);
 }
 
@@ -239,7 +283,7 @@ export function getPrintOptions(params: {
   pageNumber?: number;
   pageSize?: number;
 }) {
-  const q = new URLSearchParams({ lang: params.lang ?? "es" });
+  const q = new URLSearchParams({ lang: params.lang ?? "es-ES" });
   if (params.modelList) q.set("modelList", params.modelList);
   if (params.brand) q.set("brand", params.brand);
   if (params.pageNumber) q.set("pageNumber", String(params.pageNumber));
@@ -248,13 +292,25 @@ export function getPrintOptions(params: {
 }
 
 export function getPrintHandlings(params: { lang?: string; modelList?: string } = {}) {
-  const q = new URLSearchParams({ lang: params.lang ?? "es" });
+  const q = new URLSearchParams({ lang: params.lang ?? "es-ES" });
   if (params.modelList) q.set("modelList", params.modelList);
   return gorfactoryFetch<{
     handlingtypes: { id: string; name: string; price: number; minprice: number }[];
     models: { modelcode: string; modelid: string; availablehandlings: string[] }[];
   }>(`/api/v1/item/printhandlings?${q}`);
 }
+
+// productcode is the same SKU as itemcode in the catalog. price_unit is our
+// wholesale net cost; price_unit_pvp is Gorfactory's own suggested retail
+// (confirmed live: roughly cost × 2, in line with our own margin here).
+export type GorfactoryPricelistItem = {
+  productcode: string;
+  model: string;
+  price_unit: number;
+  price_unit_conf: number;
+  price_unit_pvp: number;
+  [key: string]: unknown;
+};
 
 // Wholesale pricelist — POST multipart/form-data, unlike the GET-based
 // catalog/item endpoints above (matches the live spec exactly).
@@ -273,7 +329,10 @@ export function getPricelist(params: {
   if (params.color) form.set("color", params.color);
   if (params.size) form.set("size", params.size);
   form.set("includeoutlet", String(params.includeoutlet ?? 0));
-  return gorfactoryFetch(`/api/v1/item/pricelist`, { method: "POST", body: form });
+  return gorfactoryFetch<{ pricelist: GorfactoryPricelistItem[] }>(`/api/v1/item/pricelist`, {
+    method: "POST",
+    body: form,
+  });
 }
 
 // "Jobsheet" — Gorfactory's own printable production sheet per model.
@@ -282,7 +341,7 @@ export function getPricelist(params: {
 // building an equivalent from scratch.
 export function getJobsheet(params: { lang?: string; brand?: string; models: string }) {
   const form = new FormData();
-  form.set("lang", params.lang ?? "es");
+  form.set("lang", params.lang ?? "es-ES");
   if (params.brand) form.set("brand", params.brand);
   form.set("models", params.models);
   return gorfactoryFetch(`/api/v1/item/jobsheet`, { method: "POST", body: form });
@@ -311,7 +370,7 @@ export function getDoc(params: { doctype: string; docnum: string }) {
 // res.json() parsing. Caller should fetch this URL directly (with a fresh
 // bearer token) when it needs the actual file bytes.
 export function docPdfUrl(params: { doctype: string; docnum: string; lang?: string }) {
-  const q = new URLSearchParams({ lang: params.lang ?? "es" });
+  const q = new URLSearchParams({ lang: params.lang ?? "es-ES" });
   return `${BASE_URL}/api/v1/doc/${params.doctype}/${params.docnum}/pdf?${q}`;
 }
 

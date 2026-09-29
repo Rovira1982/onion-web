@@ -48,11 +48,11 @@ export default function Header() {
 
         <details className="relative md:hidden">
           <summary
-            className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-full border border-border"
+            className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-full border border-border text-ink"
             aria-label="Abrir menú"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <path d="M2 5h16M2 10h16M2 15h16" stroke="#1A1310" strokeWidth="2" strokeLinecap="round" />
+              <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </summary>
           <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-border bg-white p-3 shadow-lg">

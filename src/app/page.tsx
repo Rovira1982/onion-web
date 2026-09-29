@@ -1,12 +1,18 @@
 import Link from "next/link";
 import Image from "next/image";
 import ProductCard from "@/components/ProductCard";
-import { getTopCategories, getFeaturedProducts } from "@/lib/products";
+import { getTopCategories, getFeaturedProducts, getOccasions } from "@/lib/products";
 import { getActivePromotion } from "@/lib/promotions";
+
+const OCCASION_CARD_STYLE = {
+  lg: "sm:col-span-2 py-8 text-lg",
+  md: "py-6 text-base",
+  sm: "py-4 text-sm opacity-80",
+} as const;
 
 const TRUST_BADGES = [
   {
-    title: "Satisfacción 100% garantizada",
+    title: "Sin sorpresas, nunca",
     text: "Si algo falla, te devolvemos el importe o repetimos tu pedido.",
   },
   {
@@ -41,6 +47,7 @@ export default async function Home() {
   const categories = await getTopCategories(8);
   const bestsellers = await getFeaturedProducts(8);
   const promotion = await getActivePromotion();
+  const occasions = await getOccasions();
 
   return (
     <>
@@ -52,12 +59,12 @@ export default async function Home() {
               Regalos de empresa a tu medida
             </span>
             <h1 className="mt-5 text-4xl font-extrabold leading-tight text-ink sm:text-5xl">
-              Regalos de empresa y artículos publicitarios{" "}
-              <span className="text-brand">personalizados con tu logo</span>
+              Lo que necesites,{" "}
+              <span className="text-brand">con tu logo o tu nombre</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-ink-soft">
-              Miles de referencias personalizables con tu logo: rapidez, calidad
-              y satisfacción 100% garantizada en cada pedido.
+              Camisetas, sudaderas, regalos y equipación para peñas, empresas y
+              despedidas. Lo hacemos nosotros, aquí, desde hace 12 años.
             </p>
 
             <form
@@ -90,21 +97,46 @@ export default async function Home() {
                 </div>
               ))}
             </div>
+
+            <p className="mt-6 text-xs font-semibold text-ink-soft">
+              5,0/5 en Facebook (13 reseñas) · +2.500 seguidores · +570 en Instagram
+            </p>
           </div>
 
           <div className="relative mx-auto w-full max-w-md">
             <div className="absolute -inset-6 -z-10 rounded-[2.5rem] bg-brand/10 blur-2xl" aria-hidden="true" />
-            <div className="rounded-[2rem] border border-border bg-white p-8 shadow-xl">
+            <div className="overflow-hidden rounded-[2rem] border border-border bg-white shadow-xl">
               <Image
-                src="/brand/logo-full.webp"
-                alt="Onion and Back"
-                width={400}
-                height={171}
+                src="/social-proof/asevi-detalle-real.jpg"
+                alt="Detalle personalizado real entregado a @asevi.es"
+                width={800}
+                height={1000}
                 priority
-                className="mx-auto h-auto w-full"
+                className="h-[420px] w-full object-cover sm:h-[480px]"
               />
             </div>
+            <p className="mt-3 text-center text-xs text-ink-soft">
+              Pedido real entregado a <span className="font-semibold text-ink">@asevi.es</span>
+            </p>
           </div>
+        </div>
+      </section>
+
+      {/* Ocasiones — orden y peso visual fijados por el negocio, no alfabético */}
+      <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
+        <h2 className="font-display text-sm font-bold uppercase tracking-wide text-ink-soft">
+          ¿Para qué lo necesitas?
+        </h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          {occasions.map((o) => (
+            <Link
+              key={o.slug}
+              href={`/catalogo?ocasion=${o.slug}`}
+              className={`flex items-center justify-center rounded-2xl border border-border bg-white px-4 text-center font-display font-bold text-ink transition-colors hover:border-brand hover:text-brand ${OCCASION_CARD_STYLE[o.weight]}`}
+            >
+              {o.name}
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -197,10 +229,15 @@ export default async function Home() {
               href={`/catalogo?categoria=${c.slug}`}
               className="group flex items-center justify-between rounded-2xl border border-border bg-white px-5 py-4 transition-colors hover:border-brand"
             >
-              <span className="font-display text-sm font-semibold text-ink group-hover:text-brand">
-                {c.name}
+              <span className="flex flex-col">
+                <span className="font-display text-sm font-semibold text-ink group-hover:text-brand">
+                  {c.name}
+                </span>
+                {c.fromPrice !== null && (
+                  <span className="mt-0.5 text-xs text-ink-soft">Desde {c.fromPrice.toFixed(2)} €</span>
+                )}
               </span>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-ink-soft">
+              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-ink-soft">
                 {c.count}
               </span>
             </Link>

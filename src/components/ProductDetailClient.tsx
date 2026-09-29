@@ -57,7 +57,11 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
         {product.subcategory ? ` · ${product.subcategory}` : ""}
       </span>
       <h1 className="mt-2 text-3xl font-bold text-ink">{product.name}</h1>
-      {displayRef && <p className="mt-1 text-xs text-ink-soft">Ref. {displayRef}</p>}
+      <p className="mt-1 text-xs text-ink-soft">
+        {product.brand && <span className="font-semibold text-ink">{product.brand}</span>}
+        {product.brand && displayRef ? " · " : ""}
+        {displayRef && `Ref. ${displayRef}`}
+      </p>
 
       <p className="mt-4 text-2xl font-bold text-ink">
         Desde {money(displayPrice)}{" "}
@@ -142,10 +146,20 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
           productName={product.name}
           image={product.image}
           variant={selected}
+          category={product.subcategory || product.category}
         />
       )}
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+      <a
+        href={`https://wa.me/34616114095?text=${encodeURIComponent(`Hola! Me interesa este producto: ${product.name}`)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[#25D366] px-7 py-3 text-center font-display text-sm font-bold text-white transition-colors hover:brightness-95"
+      >
+        Pregunta por WhatsApp
+      </a>
+
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row">
         <Link
           href={`/contacto?producto=${encodeURIComponent(product.name)}`}
           className="cursor-pointer rounded-full border border-border px-7 py-3 text-center font-display text-sm font-bold text-ink transition-colors hover:border-brand hover:text-brand"

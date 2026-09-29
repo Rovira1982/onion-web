@@ -1,7 +1,10 @@
-// One-time import: reads data/cifra-products.csv (via prisma/cifra-source.ts)
-// and writes it into the real database. Safe to re-run — everything is
-// upserted by a stable key (supplier+SKU for products, supplierModelCode
-// for variants).
+// Live import: pulls Cifra's confidential (cost) pricelist from their API
+// (via prisma/cifra-source.ts) and writes it into the database. Safe to
+// re-run — everything is upserted by a stable key (supplier+SKU for
+// products, supplierModelCode for variants).
+//
+// Replaces the earlier one-time CSV import — confirmed live 2026-09-29,
+// api.cifrashop.com/tariff/:TOKEN gives 6138 products with real cost/stock.
 //
 // Run with: npx tsx prisma/import-cifra.ts
 import { config } from "dotenv";
@@ -14,6 +17,10 @@ import { getCifraFamilies } from "./cifra-source";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
+// confidential_price is Cifra's wholesale cost — their own PVP endpoint is
+// confirmed live to always be exactly confidential_price × 2 (checked across
+// all 6138 products), matching the ×2 margin we already use for Roly/Stamina.
+const MARGEN = 2;
 const DEFAULT_CATEGORY = "Regalo Promocional";
 
 function slugify(input: string) {
@@ -50,7 +57,7 @@ async function main() {
     topCategoryIds[name] = cat.id;
   }
 
-  const families = getCifraFamilies();
+  const families = await getCifraFamilies();
   console.log(`${families.length} familias de producto a importar...\n`);
 
   const childCategoryIds = new Map<string, string>();
@@ -87,16 +94,18 @@ async function main() {
     const totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
     const supplierSku = uniqueSkuFor(rep.rootmodel);
     const categoryId = await categoryIdFor(rep.category);
+    const basePrice = Math.round(rep.price * MARGEN * 100) / 100;
 
     const product = await prisma.product.upsert({
       where: { supplierId_supplierSku: { supplierId: supplier.id, supplierSku } },
       update: {
         name: rep.name,
         description: rep.description,
+        brand: "Cifra",
         subcategory: rep.subcategory || null,
         material: rep.material || null,
         engravingTechnique: rep.engravingTechnique || null,
-        basePrice: rep.price,
+        basePrice,
         stock: totalStock,
         categoryId,
         lastSyncedAt: new Date(),
@@ -106,31 +115,32 @@ async function main() {
         supplierSku,
         name: rep.name,
         description: rep.description,
+        brand: "Cifra",
         subcategory: rep.subcategory || null,
         material: rep.material || null,
         engravingTechnique: rep.engravingTechnique || null,
-        basePrice: rep.price,
+        basePrice,
         stock: totalStock,
         categoryId,
       },
     });
 
-    const existingImage = await prisma.productImage.findFirst({
-      where: { productId: product.id, url: rep.image },
-    });
-    if (!existingImage && rep.image) {
-      await prisma.productImage.create({
-        data: { productId: product.id, url: rep.image, position: 0 },
-      });
+    const images = [rep.image, ...rep.images].filter((url, i, arr) => url && arr.indexOf(url) === i);
+    for (const [i, url] of images.entries()) {
+      const existingImage = await prisma.productImage.findFirst({ where: { productId: product.id, url } });
+      if (!existingImage) {
+        await prisma.productImage.create({ data: { productId: product.id, url, position: i } });
+      }
     }
 
     for (const v of variants) {
+      const price = Math.round(v.price * MARGEN * 100) / 100;
       await prisma.productVariant.upsert({
         where: { supplierModelCode: v.model },
         update: {
           size: v.size || null,
           color: v.colorLabel || null,
-          price: v.price,
+          price,
           stock: v.stock,
           productId: product.id,
         },
@@ -138,7 +148,7 @@ async function main() {
           productId: product.id,
           size: v.size || null,
           color: v.colorLabel || null,
-          price: v.price,
+          price,
           stock: v.stock,
           supplierModelCode: v.model,
         },

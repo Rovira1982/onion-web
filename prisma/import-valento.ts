@@ -17,7 +17,10 @@ const prisma = new PrismaClient({ adapter });
 const BASE_URL = process.env.VALENTO_BASE_URL ?? "https://www.valento.es/rest";
 const PAGE_SIZE = 50;
 const PAGE_LIMIT = 20; // catálogo completo (917 productos ÷ 50/página = 19 páginas)
-const MARGEN = 1.4; // BASE_COSTS.Multiplicador_rec de src/lib/pricing.ts — mismo margen "recomendado" del presupuestador Excel
+// ×2 sobre el coste de mayorista — mismo criterio que Roly/Stamina/Cifra/TopTex.
+// Valento incluso lo confirma con su propio campo `suggested_retail_price`,
+// que en las 899 variantes comprobadas es siempre exactamente net_price × 2.
+const MARGEN = 2;
 
 const TOP_CATEGORY = "Ropa Laboral"; // mismo bucket que TopTex — ver import-cifra.ts
 
