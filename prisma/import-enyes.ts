@@ -68,7 +68,11 @@ function sleep(ms: number) {
 // familia.
 function sanitizeEnyesJson(text: string): string {
   return text
-    .replace(/"product":\s*0*(\d+)/, '"product":"$1"')
+    // El "product" viene sin comillas — casi siempre es numérico
+    // ("01010101", con el cero a la izquierda ya quitado aquí porque un
+    // JSON number no lo admite), pero al menos una familia usa un código
+    // no numérico ("CAT") — se cubren ambos casos.
+    .replace(/"product":\s*0*(\w+)/, '"product":"$1"')
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f]/g, " ");
 }
