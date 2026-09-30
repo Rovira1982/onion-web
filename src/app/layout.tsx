@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CookieBanner from "@/components/CookieBanner";
 import MetaPixel from "@/components/MetaPixel";
+import WhatsAppFloatingButton from "@/components/WhatsAppFloatingButton";
 import { CartProvider } from "@/lib/cart";
 
 const nunitoSans = Nunito_Sans({
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </CartProvider>
         <CookieBanner />
         <MetaPixel />
+        <WhatsAppFloatingButton />
       </body>
     </html>
   );
