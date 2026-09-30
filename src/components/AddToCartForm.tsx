@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useCart } from "@/lib/cart";
+import { useCart, type CartItem } from "@/lib/cart";
 import { type PrintSize, type PrintZone, type Technique } from "@/lib/pricing";
 import { personalizedUnitPrice, PERSONALIZED_EXTRA_MARGIN } from "@/lib/line-price";
 import { selectGarmentTier, type GarmentTier } from "@/lib/garment-price";
@@ -98,6 +98,19 @@ const SIZES: { value: PrintSize; label: string }[] = [
 ];
 
 const DEFAULT_ZONE: PrintZone = { active: false, colors: 1, size: "10x10" };
+
+const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"];
+
+function sortVariantsBySize<T extends { size: string }>(variants: T[]): T[] {
+  return variants.slice().sort((a, b) => {
+    const ia = SIZE_ORDER.indexOf(a.size);
+    const ib = SIZE_ORDER.indexOf(b.size);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.size.localeCompare(b.size);
+  });
+}
 
 // DTF y Sublimación imprimen a todo color directamente desde el logo subido
 // — solo Serigrafía y Vinilo necesitan saber qué color de tinta/vinilo usar.
@@ -235,11 +248,21 @@ function isGarmentCategory(category: string): boolean {
   return GARMENT_KEYWORDS.some((k) => lower.includes(k));
 }
 
+type FormVariant = {
+  id: string;
+  size: string;
+  color: string;
+  price: number;
+  pricePack: number | null;
+  priceBox: number | null;
+  stock: number;
+};
+
 export default function AddToCartForm({
   productSlug,
   productName,
   image,
-  variant,
+  variants,
   unitsPerPack,
   unitsPerCase,
   incompleteData,
@@ -248,15 +271,19 @@ export default function AddToCartForm({
   productSlug: string;
   productName: string;
   image: string;
-  variant: { id: string; size: string; color: string; price: number; pricePack: number | null; priceBox: number | null; stock: number };
+  // Todas las variantes del color elegido (una fila = una talla) — permite
+  // pedir varias tallas de una vez en lugar de talla por talla (petición
+  // del dueño, 2026-09-30).
+  variants: FormVariant[];
   unitsPerPack: number | null;
   unitsPerCase: number | null;
   incompleteData: boolean;
   category: string;
 }) {
   const canPersonalize = isGarmentCategory(category);
-  const { addItem } = useCart();
+  const { addItems } = useCart();
   const router = useRouter();
+  const sortedVariants = useMemo(() => sortVariantsBySize(variants), [variants]);
 
   const [mode, setMode] = useState<"stock" | "personalizado">("stock");
   const [technique, setTechnique] = useState<Technique>("DTF");
@@ -267,7 +294,7 @@ export default function AddToCartForm({
   const [mangaDerecha, setMangaDerecha] = useState(false);
   const [mockupGarment, setMockupGarment] = useState<MockupGarment>("camiseta");
   const [mockupColor, setMockupColor] = useState<MockupColor>("blanco");
-  const [quantity, setQuantity] = useState(1);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [added, setAdded] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoTransforms, setLogoTransforms] = useState<ZoneTransforms>({});
@@ -291,23 +318,13 @@ export default function AddToCartForm({
   // lado, para no cobrar 0.
   const mangasMultiplier = Math.max(1, (mangaIzquierda ? 1 : 0) + (mangaDerecha ? 1 : 0));
 
-  const garmentPricing = useMemo(
-    () =>
-      selectGarmentTier(
-        {
-          price: variant.price,
-          pricePack: variant.pricePack,
-          priceBox: variant.priceBox,
-          unitsPerPack,
-          unitsPerCase,
-          incompleteData,
-        },
-        quantity
-      ),
-    [variant.price, variant.pricePack, variant.priceBox, unitsPerPack, unitsPerCase, incompleteData, quantity]
-  );
+  const totalQuantity = Object.values(quantities).reduce((sum, q) => sum + q, 0);
 
-  const marking = useMemo(
+  // Config del marcaje compartida por todas las tallas de este pedido — el
+  // precio de marcaje se calcula UNA vez sobre totalQuantity (la tirada real
+  // que se imprime), no talla por talla (petición del dueño, 2026-09-30: el
+  // marcaje se cobraba antes como si cada talla fuera un pedido aparte).
+  const markingConfig = useMemo(
     () =>
       mode === "personalizado"
         ? {
@@ -316,20 +333,57 @@ export default function AddToCartForm({
             espalda,
             mangas: { ...mangas, multiplier: mangasMultiplier },
             garmentType: "Cliente" as const,
-            garmentUnitCost: garmentPricing.price,
-            quantity,
             extraMargin: PERSONALIZED_EXTRA_MARGIN,
             personalizedName: false,
           }
         : null,
-    [mode, technique, pecho, espalda, mangas, mangasMultiplier, garmentPricing.price, quantity]
+    [mode, technique, pecho, espalda, mangas, mangasMultiplier]
   );
 
-  const unitPrice = useMemo(() => {
-    if (!marking) return garmentPricing.price;
-    if (noZoneActive || needsConsultation) return null;
-    return personalizedUnitPrice(marking, garmentPricing.price);
-  }, [marking, noZoneActive, needsConsultation, garmentPricing.price]);
+  // Por talla: tramo de prenda (unidad/pack/caja) según SU PROPIA cantidad
+  // (es el tramo real por SKU del proveedor, no cambia con este ajuste) +
+  // precio de marcaje según la cantidad TOTAL del grupo.
+  const pricing = useMemo(() => {
+    const map = new Map<string, { price: number | null; tier: GarmentTier; garmentPrice: number }>();
+    for (const v of sortedVariants) {
+      const qty = quantities[v.id] ?? 0;
+      const garmentPricing = selectGarmentTier(
+        { price: v.price, pricePack: v.pricePack, priceBox: v.priceBox, unitsPerPack, unitsPerCase, incompleteData },
+        qty || 1
+      );
+      if (!markingConfig) {
+        map.set(v.id, { price: garmentPricing.price, tier: garmentPricing.tier, garmentPrice: garmentPricing.price });
+        continue;
+      }
+      if (noZoneActive || needsConsultation || totalQuantity === 0) {
+        map.set(v.id, { price: null, tier: garmentPricing.tier, garmentPrice: garmentPricing.price });
+        continue;
+      }
+      const price = personalizedUnitPrice(
+        { ...markingConfig, quantity: totalQuantity, garmentUnitCost: garmentPricing.price },
+        garmentPricing.price
+      );
+      map.set(v.id, { price, tier: garmentPricing.tier, garmentPrice: garmentPricing.price });
+    }
+    return map;
+  }, [sortedVariants, quantities, unitsPerPack, unitsPerCase, incompleteData, markingConfig, noZoneActive, needsConsultation, totalQuantity]);
+
+  const activeVariants = sortedVariants.filter((v) => (quantities[v.id] ?? 0) > 0);
+  const canAdd =
+    activeVariants.length > 0 && activeVariants.every((v) => pricing.get(v.id)?.price !== null) && !needsConsultation;
+  const subtotal = activeVariants.reduce((sum, v) => sum + (pricing.get(v.id)?.price ?? 0) * quantities[v.id]!, 0);
+
+  function setQuantity(variantId: string, value: number) {
+    const safe = Math.max(0, Math.floor(value) || 0);
+    setQuantities((prev) => {
+      if (safe === 0) {
+        const next = { ...prev };
+        delete next[variantId];
+        return next;
+      }
+      return { ...prev, [variantId]: safe };
+    });
+  }
 
   async function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -349,7 +403,7 @@ export default function AddToCartForm({
   }
 
   async function handleAddToCart() {
-    if (unitPrice === null) return;
+    if (!canAdd) return;
     setSaving(true);
 
     let design: {
@@ -357,7 +411,7 @@ export default function AddToCartForm({
       markings: Partial<Record<MarkZone, { x: number; y: number; scale: number; rotation: number; colorName?: string }>>;
       previewImageUrl: string;
     } | null = null;
-    if (marking && logoUrl) {
+    if (markingConfig && logoUrl) {
       try {
         const previewDataUrl = await renderZonesPreview(logoUrl, logoTransforms, mockupGarment, mockupColor);
         const previewFile = dataUrlToFile(previewDataUrl, "preview.png");
@@ -374,34 +428,39 @@ export default function AddToCartForm({
           design = { logoFileUrl: logoUrl, markings, previewImageUrl: result.url };
         }
       } catch {
-        // Preview generation/upload failed — still add the item with the
+        // Preview generation/upload failed — still add the items with the
         // logo and its coordinates, just without a rendered thumbnail.
       }
     }
 
-    addItem({
-      productVariantId: variant.id,
-      productSlug,
-      productName,
-      size: variant.size,
-      color: variant.color,
-      image,
-      quantity,
-      unitPrice,
-      garmentTier: garmentPricing.tier,
-      garment: {
-        price: variant.price,
-        pricePack: variant.pricePack,
-        priceBox: variant.priceBox,
-        unitsPerPack,
-        unitsPerCase,
-        incompleteData,
-      },
-      marking,
-      design,
+    // Todas las tallas añadidas en este clic comparten diseño — el mismo
+    // designGroupId es lo que permite al carrito y a checkout recalcular el
+    // marcaje sobre la cantidad total del grupo (ver src/lib/design-group.ts).
+    const designGroupId = crypto.randomUUID();
+    const newItems: Omit<CartItem, "id">[] = activeVariants.map((v) => {
+      const qty = quantities[v.id]!;
+      const p = pricing.get(v.id)!;
+      return {
+        productVariantId: v.id,
+        productSlug,
+        productName,
+        size: v.size,
+        color: v.color,
+        image,
+        quantity: qty,
+        unitPrice: p.price!,
+        garmentTier: p.tier,
+        garment: { price: v.price, pricePack: v.pricePack, priceBox: v.priceBox, unitsPerPack, unitsPerCase, incompleteData },
+        marking: markingConfig ? { ...markingConfig, quantity: totalQuantity, garmentUnitCost: p.garmentPrice } : null,
+        design,
+        designGroupId,
+      };
     });
+
+    addItems(newItems);
     setSaving(false);
     setAdded(true);
+    setQuantities({});
     setTimeout(() => setAdded(false), 2000);
   }
 
@@ -435,17 +494,11 @@ export default function AddToCartForm({
         </p>
       )}
 
-      {mode === "stock" || !canPersonalize ? (
-        <p className="mt-4 text-sm text-ink-soft">
-          El producto tal cual, sin marcaje. {money(garmentPricing.price)}/ud.
-          {garmentPricing.tier !== "unidad" && (
-            <span className="ml-1 text-xs text-brand">
-              (precio de {garmentPricing.tier} a partir de{" "}
-              {garmentPricing.tier === "caja" ? unitsPerCase : unitsPerPack} uds)
-            </span>
-          )}
-        </p>
-      ) : (
+      {(mode === "stock" || !canPersonalize) && (
+        <p className="mt-4 text-xs text-ink-soft">El producto tal cual, sin marcaje.</p>
+      )}
+
+      {mode === "personalizado" && canPersonalize && (
         <div className="mt-4 flex flex-col gap-3">
           <label className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-ink-soft">Técnica de estampado</span>
@@ -583,29 +636,57 @@ export default function AddToCartForm({
         </div>
       )}
 
-      <div className="mt-4 flex items-end gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold text-ink-soft">Cantidad</span>
-          <input
-            type="number"
-            min={1}
-            value={quantity}
-            onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-            className="w-24 rounded-lg border border-border px-3 py-2 text-sm text-ink"
-          />
-        </label>
-        <div className="flex-1 text-right">
-          <p className="text-xs text-ink-soft">Precio por unidad</p>
-          <p className="font-display text-xl font-extrabold text-ink">
-            {unitPrice === null ? "—" : money(unitPrice)}
-          </p>
+      {(mode === "stock" || !canPersonalize || (!noZoneActive && !needsConsultation)) && (
+        <div className="mt-5">
+          <span className="text-xs font-semibold text-ink-soft">
+            {sortedVariants.length > 1 ? "Cantidad por talla" : "Cantidad"}
+          </span>
+          <div className="mt-2 flex flex-col divide-y divide-border rounded-xl border border-border">
+            {sortedVariants.map((v) => {
+              const p = pricing.get(v.id);
+              const qty = quantities[v.id] ?? 0;
+              return (
+                <div key={v.id} className="flex items-center gap-3 px-3 py-2">
+                  <span className="w-16 shrink-0 text-sm font-semibold text-ink">{v.size || "Única"}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={qty || ""}
+                    placeholder="0"
+                    onChange={(e) => setQuantity(v.id, Number(e.target.value))}
+                    className="w-20 rounded-lg border border-border px-2 py-1.5 text-sm text-ink"
+                  />
+                  <span className="flex-1 text-right text-xs text-ink-soft">
+                    {qty > 0 && p?.price != null ? (
+                      <>
+                        {money(p.price)}/ud
+                        {p.tier !== "unidad" && <span className="ml-1 text-brand">({p.tier})</span>}
+                      </>
+                    ) : v.stock <= 0 ? (
+                      "Sin stock"
+                    ) : (
+                      ""
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <p className="text-xs text-ink-soft">{totalQuantity > 0 ? `${totalQuantity} unidades en total` : ""}</p>
+        <div className="text-right">
+          <p className="text-xs text-ink-soft">Subtotal</p>
+          <p className="font-display text-xl font-extrabold text-ink">{totalQuantity > 0 ? money(subtotal) : "—"}</p>
         </div>
       </div>
 
       <button
         type="button"
         onClick={handleAddToCart}
-        disabled={unitPrice === null || saving}
+        disabled={!canAdd || saving}
         className="mt-4 w-full cursor-pointer rounded-full bg-brand px-7 py-3 font-display text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
       >
         {saving ? "Guardando…" : added ? "Añadido ✓" : "Añadir al carrito"}

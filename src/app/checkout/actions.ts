@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { type QuoteInput } from "@/lib/pricing";
 import { personalizedUnitPrice, PERSONALIZED_EXTRA_MARGIN } from "@/lib/line-price";
 import { selectGarmentTier } from "@/lib/garment-price";
+import { groupQuantityTotals } from "@/lib/design-group";
 import { validateDiscountCode, type DiscountCheckResult } from "@/lib/discounts";
 
 // Envío al cliente — 6€ fijo, gratis desde 300€ de importe final (con
@@ -28,6 +29,10 @@ export type CheckoutCartItem = {
   quantity: number;
   marking: QuoteInput | null;
   design: CheckoutDesign | null;
+  // Varias tallas del mismo producto+diseño añadidas juntas comparten este
+  // id — el precio de marcaje se calcula sobre la cantidad TOTAL del grupo
+  // (ver groupQuantityTotals), nunca sobre la de una talla sola.
+  designGroupId?: string;
 };
 
 export type CheckoutInput = {
@@ -82,6 +87,15 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
   });
   const variantById = new Map(variants.map((v) => [v.id, v]));
 
+  // Normalize quantities first so grouping sums the same clamped numbers
+  // used for pricing below, then sum each design group's total once — see
+  // src/lib/design-group.ts. The marking price for every line in a group
+  // (several sizes of the same personalization) is priced off that TOTAL,
+  // never off any single size's own quantity, matching what the cart
+  // already computed client-side (never trusted as-is, just mirrored here).
+  const normalizedItems = input.items.map((item) => ({ ...item, quantity: Math.max(1, Math.floor(item.quantity)) }));
+  const groupTotals = groupQuantityTotals(normalizedItems);
+
   const lines: {
     productVariantId: string;
     quantity: number;
@@ -91,7 +105,7 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
     priceTier: string;
     design?: { create: CheckoutDesign };
   }[] = [];
-  for (const item of input.items) {
+  for (const [idx, item] of normalizedItems.entries()) {
     const variant = variantById.get(item.productVariantId);
     if (!variant) return { error: "Uno de los productos del carrito ya no está disponible." };
 
@@ -103,7 +117,7 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
       return { error: "La técnica Vinilo requiere presupuesto a medida — no se puede pedir online." };
     }
 
-    const quantity = Math.max(1, Math.floor(item.quantity));
+    const quantity = item.quantity;
     // Garment tier (unidad/pack/caja) and the fixed business margin always
     // come from the server (DB data) — the browser only decides technique,
     // zones and quantity, never a cost, margin or tier.
@@ -123,7 +137,12 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
     let markingCost: number | null = null;
     if (item.marking) {
       unitPrice = personalizedUnitPrice(
-        { ...item.marking, quantity, extraMargin: PERSONALIZED_EXTRA_MARGIN, garmentUnitCost: garmentPricing.price },
+        {
+          ...item.marking,
+          quantity: groupTotals[idx],
+          extraMargin: PERSONALIZED_EXTRA_MARGIN,
+          garmentUnitCost: garmentPricing.price,
+        },
         garmentPricing.price
       );
       if (unitPrice !== null) markingCost = Math.round((unitPrice - garmentPricing.price) * 100) / 100;

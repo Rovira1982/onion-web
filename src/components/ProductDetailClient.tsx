@@ -6,48 +6,29 @@ import Image from "next/image";
 import { describeEngravingTechnique, describeMaterial, type ProductDetail } from "@/lib/product-format";
 import AddToCartForm from "@/components/AddToCartForm";
 
-const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"];
-
-function sortSizes(sizes: string[]) {
-  return sizes.slice().sort((a, b) => {
-    const ia = SIZE_ORDER.indexOf(a);
-    const ib = SIZE_ORDER.indexOf(b);
-    if (ia !== -1 && ib !== -1) return ia - ib;
-    if (ia !== -1) return -1;
-    if (ib !== -1) return 1;
-    return a.localeCompare(b);
-  });
-}
-
 function money(n: number) {
   return n.toFixed(2).replace(".", ",") + " €";
 }
 
 export default function ProductDetailClient({ product }: { product: ProductDetail }) {
   const { variants } = product;
-  const [selectedId, setSelectedId] = useState(variants[0]?.id);
-  const selected = variants.find((v) => v.id === selectedId) ?? variants[0];
-
-  const sizes = useMemo(
-    () => sortSizes(Array.from(new Set(variants.map((v) => v.size).filter(Boolean)))),
-    [variants]
-  );
   const colors = useMemo(
     () => Array.from(new Set(variants.map((v) => v.color).filter(Boolean))),
     [variants]
   );
+  const [selectedColor, setSelectedColor] = useState(variants[0]?.color ?? "");
 
-  function findVariant(size: string, color: string) {
-    return (
-      variants.find((v) => v.size === size && v.color === color) ??
-      variants.find((v) => v.size === size) ??
-      variants.find((v) => v.color === color)
-    );
-  }
+  // Todas las tallas del color elegido — AddToCartForm deja pedir varias a
+  // la vez, así que la talla ya no se elige aquí (ver AddToCartForm).
+  const variantsForColor = useMemo(
+    () => (selectedColor ? variants.filter((v) => v.color === selectedColor) : variants),
+    [variants, selectedColor]
+  );
+  const selected = variantsForColor[0] ?? variants[0];
 
   const hasVariants = variants.length > 1;
   const displayPrice = selected?.price ?? product.price;
-  const displayStock = selected?.stock ?? product.stock;
+  const displayStock = variantsForColor.reduce((sum, v) => sum + v.stock, 0) || product.stock;
   const displayRef = selected?.supplierModelCode;
 
   return (
@@ -70,46 +51,22 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
 
       <p className="mt-6 text-ink-soft">{product.description}</p>
 
-      {hasVariants && (sizes.length > 1 || colors.length > 1) && (
-        <div className="mt-5 grid max-w-xs gap-4 sm:grid-cols-2">
-          {sizes.length > 1 && (
-            <label className="flex flex-col gap-2">
-              <span className="font-display text-sm font-semibold text-ink-soft">Talla</span>
-              <select
-                value={selected?.size}
-                onChange={(e) => {
-                  const next = findVariant(e.target.value, selected?.color ?? "");
-                  if (next) setSelectedId(next.id);
-                }}
-                className="rounded-lg border border-border px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-              >
-                {sizes.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {colors.length > 1 && (
-            <label className="flex flex-col gap-2">
-              <span className="font-display text-sm font-semibold text-ink-soft">Color</span>
-              <select
-                value={selected?.color}
-                onChange={(e) => {
-                  const next = findVariant(selected?.size ?? "", e.target.value);
-                  if (next) setSelectedId(next.id);
-                }}
-                className="rounded-lg border border-border px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-              >
-                {colors.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+      {hasVariants && colors.length > 1 && (
+        <div className="mt-5 max-w-xs">
+          <label className="flex flex-col gap-2">
+            <span className="font-display text-sm font-semibold text-ink-soft">Color</span>
+            <select
+              value={selectedColor}
+              onChange={(e) => setSelectedColor(e.target.value)}
+              className="rounded-lg border border-border px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            >
+              {colors.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       )}
 
@@ -140,12 +97,12 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
         </div>
       </dl>
 
-      {selected && (
+      {variantsForColor.length > 0 && (
         <AddToCartForm
           productSlug={product.slug}
           productName={product.name}
           image={product.image}
-          variant={selected}
+          variants={variantsForColor}
           unitsPerPack={product.unitsPerPack}
           unitsPerCase={product.unitsPerCase}
           incompleteData={product.incompleteData}

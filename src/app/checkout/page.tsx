@@ -84,6 +84,7 @@ export default function CheckoutPage() {
         quantity: i.quantity,
         marking: i.marking,
         design: i.design,
+        designGroupId: i.designGroupId,
       })),
       invoiceName,
       invoiceTaxId,
