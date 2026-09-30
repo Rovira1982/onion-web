@@ -52,6 +52,14 @@ enum DiscountType {
   cliente_habitual
 }
 
+enum SupplierOrderStatus {
+  borrador
+  confirmado
+  enviado
+  error
+  cancelado
+}
+
 model Supplier {
   id         String    @id @default(uuid())
   name       String    @unique
@@ -151,6 +159,7 @@ model ProductVariant {
   stock             Int         @default(0)
   supplierModelCode String      @unique // código real de esta variante en el proveedor (trazabilidad)
   orderLines        OrderLine[]
+  supplierOrderLines SupplierOrderLine[]
 
   @@index([productId])
   @@map("product_variants")
@@ -185,6 +194,7 @@ model User {
   role             UserRole @default(cliente)
   createdAt        DateTime @default(now())
   orders           Order[]
+  confirmedSupplierOrders SupplierOrder[]
 
   @@map("users")
 }
@@ -247,8 +257,72 @@ model OrderLine {
   // "unidad" | "pack" | "caja" — qué tramo se aplicó a esta línea.
   priceTier        String?
   design           DesignConfig?
+  // Tanda de pedido a proveedor que ya recogió esta línea — null hasta que
+  // corre el batch runner (ver runBatch en supplier-batch-runner.ts). Una
+  // OrderLine aporta siempre su cantidad entera a una única SupplierOrderLine.
+  supplierOrderLineId String?
+  supplierOrderLine   SupplierOrderLine? @relation(fields: [supplierOrderLineId], references: [id], onDelete: SetNull)
 
   @@map("order_lines")
+}
+
+// Pedido consolidado a un proveedor (canal de envío real — ver adapterKey),
+// generado dos veces al día a partir de las OrderLine de pedidos ya pagados
+// que todavía no se han asignado a ninguna tanda. Nunca se envía nada al
+// proveedor sin que un admin lo confirme explícitamente (confirmarTanda).
+model SupplierOrder {
+  id                      String              @id @default(uuid())
+  // "gorfactory" | "toptex" | "valento" | "cifra" — canal de envío real, NO
+  // Supplier.id: Roly y Stamina comparten cuenta/API de Gorfactory, así que
+  // caen en la misma tanda (ver plan "Tandas de pedido a proveedor").
+  adapterKey              String
+  batchRunAt              DateTime
+  status                  SupplierOrderStatus @default(borrador)
+  // "api" (Gorfactory/TopTex, se envía via placeOrder()/createOrder()) o
+  // "manual" (Valento/Cifra, Josep lo pide él mismo con el texto generado).
+  fulfillmentMode         String
+  subtotal                Decimal             @default(0) @db.Decimal(10, 2)
+  handlingFee             Decimal             @default(0) @db.Decimal(10, 2)
+  shippingCost            Decimal             @default(0) @db.Decimal(10, 2)
+  // Solo Gorfactory — sin fórmula automática, lo decide Josep en el borrador
+  // según el volumen antes de confirmar (ver gorfactoryShipping).
+  parcelCount             Int?
+  quoteFromAccountManager Boolean             @default(false)
+  supplierOrderCode       String?
+  placedAt                DateTime?
+  confirmedAt             DateTime?
+  confirmedById           String?
+  confirmedBy             User?               @relation(fields: [confirmedById], references: [id])
+  // Resumen de redondeos a caja / sobrante para que Josep lo revise antes
+  // de confirmar (ver consolidateSku en supplier-batching.ts).
+  notes                   String?
+  createdAt               DateTime            @default(now())
+  lines                   SupplierOrderLine[]
+
+  @@index([adapterKey, batchRunAt])
+  @@map("supplier_orders")
+}
+
+model SupplierOrderLine {
+  id                 String         @id @default(uuid())
+  supplierOrderId    String
+  supplierOrder      SupplierOrder  @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
+  productVariantId   String
+  productVariant     ProductVariant @relation(fields: [productVariantId], references: [id])
+  requestedQuantity  Int
+  // requestedQuantity, o redondeado a unitsPerCase si compensa por precio
+  // (ver consolidateSku en supplier-batching.ts).
+  orderedQuantity    Int
+  priceTier          String
+  unitCost           Decimal        @db.Decimal(10, 4)
+  lineCost           Decimal        @db.Decimal(10, 2)
+  boxRounded         Boolean        @default(false)
+  surplusQuantity    Int            @default(0)
+  handlingFeeApplied Boolean        @default(false)
+  orderLines         OrderLine[]
+
+  @@unique([supplierOrderId, productVariantId])
+  @@map("supplier_order_lines")
 }
 
 // Configuración del diseñador visual — una por línea de pedido.
