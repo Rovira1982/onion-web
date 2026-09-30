@@ -56,6 +56,15 @@ async function login(env: "test" | "prod"): Promise<string> {
   return token;
 }
 
+let cachedToken: string | null = null;
+function makeGetToken(env: "test" | "prod") {
+  return async (forceRefresh = false): Promise<string> => {
+    if (cachedToken && !forceRefresh) return cachedToken;
+    cachedToken = await login(env);
+    return cachedToken;
+  };
+}
+
 type MakitoVariant = { variant_reference: string; variant_colorcode?: string; variant_size?: string };
 type MakitoProduct = { ref: string; image?: string; variants?: MakitoVariant[] };
 type MakitoStockRow = { material: string; quantity: number };
@@ -71,9 +80,34 @@ const EXT_TO_CONTENT_TYPE: Record<string, string> = {
 // Makito sirve las imágenes con content-type: application/octet-stream (no
 // image/*) — confirmado en directo, 2026-09-30 — así que se infiere del
 // nombre de archivo en vez de fiarse de su cabecera.
-async function downloadAndStore(url: string, token: string, key: string): Promise<string | null> {
+//
+// Bug real encontrado en directo, 2026-09-30: el token se pedía una sola
+// vez al arrancar y nunca se renovaba — en una ejecución larga (miles de
+// fotos a 2,5s cada una) caduca a mitad, y cada descarga posterior fallaba
+// en silencio (!res.ok) contándose como "sin foto disponible" cuando en
+// realidad era un 401 de autenticación, no que la foto no existiera
+// (comprobado: las 4609 fichas del catálogo SÍ tienen foto real).
+//
+// Segundo fallo transitorio encontrado en la misma sesión de pruebas: con
+// token recién sacado (imposible que haya caducado) seguían fallando ~6 de
+// cada 10 — otra sesión usa la misma cuenta de test de Makito en paralelo,
+// probablemente chocando con su límite de peticiones (100 capacidad, 25/min
+// de recarga, ver import-makito.ts). Reintenta con backoff ante cualquier
+// fallo (401 con token nuevo, cualquier otro con una pequeña espera), no
+// solo 401.
+async function downloadAndStore(
+  url: string,
+  getToken: (forceRefresh?: boolean) => Promise<string>,
+  key: string,
+  attempt = 1
+): Promise<string | null> {
+  const token = await getToken(attempt > 1);
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    if (attempt >= 4) return null;
+    await sleep(1000 * attempt);
+    return downloadAndStore(url, getToken, key, attempt + 1);
+  }
   const buffer = Buffer.from(await res.arrayBuffer());
   const ext = key.split(".").pop()?.toLowerCase() ?? "";
   const contentType = EXT_TO_CONTENT_TYPE[ext] ?? "image/jpeg";
@@ -91,7 +125,8 @@ async function main() {
     `Modo: ${env === "test" ? "cuenta de TEST" : "cuenta de PRODUCCIÓN"} · límite: ${limit ?? "sin límite"} · pausa entre fotos: ${delayMs}ms\n`
   );
 
-  const token = await login(env);
+  const getToken = makeGetToken(env);
+  const token = await getToken();
   console.log("Login OK.\n");
 
   const [catalogRes, stockRes] = await Promise.all([
@@ -138,7 +173,7 @@ async function main() {
 
     const ext = p.image!.split(".").pop() || "jpg";
     const key = `makito/${p.ref}/principal.${ext}`;
-    const url = await downloadAndStore(p.image!, token, key);
+    const url = await downloadAndStore(p.image!, getToken, key);
 
     if (!url) {
       failed++;
