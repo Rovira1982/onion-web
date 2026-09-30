@@ -73,6 +73,8 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               <th className="px-4 py-2">Talla/Color</th>
               <th className="px-4 py-2">Tramo</th>
               <th className="px-4 py-2">Cant.</th>
+              <th className="px-4 py-2">Prenda/ud</th>
+              <th className="px-4 py-2">Marcaje/ud</th>
               <th className="px-4 py-2">Precio/ud</th>
               <th className="px-4 py-2">Total</th>
             </tr>
@@ -84,6 +86,8 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
                 <td className="px-4 py-2 text-ink-soft">{[line.size, line.color].filter(Boolean).join(" · ") || "—"}</td>
                 <td className="px-4 py-2 text-ink-soft">{line.priceTier ?? "—"}</td>
                 <td className="px-4 py-2 text-ink">{line.quantity}</td>
+                <td className="px-4 py-2 text-ink-soft">{line.garmentCost != null ? money(line.garmentCost) : "—"}</td>
+                <td className="px-4 py-2 text-ink-soft">{line.markingCost != null ? money(line.markingCost) : "—"}</td>
                 <td className="px-4 py-2 text-ink">{money(line.unitPrice)}</td>
                 <td className="px-4 py-2 font-semibold text-ink">{money(line.unitPrice * line.quantity)}</td>
               </tr>

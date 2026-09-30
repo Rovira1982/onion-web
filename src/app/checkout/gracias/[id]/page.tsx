@@ -24,10 +24,10 @@ export default async function GraciasPage({ params }: { params: Promise<{ id: st
         <p className="text-xs uppercase tracking-wide text-ink-soft">Pedido</p>
         <p className="font-mono text-sm text-ink">{order.id}</p>
 
-        <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 text-sm">
+        <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 text-sm">
           {order.lines.map((line) => (
-            <div key={line.id} className="flex items-center justify-between gap-2 text-ink-soft">
-              <span className="flex items-center gap-2">
+            <div key={line.id} className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2">
                 {line.previewImageUrl && (
                   <Image
                     src={line.previewImageUrl}
@@ -35,17 +35,45 @@ export default async function GraciasPage({ params }: { params: Promise<{ id: st
                     width={32}
                     height={32}
                     unoptimized
-                    className="h-8 w-8 rounded-lg border border-border object-contain"
+                    className="h-8 w-8 shrink-0 rounded-lg border border-border object-contain"
                   />
                 )}
-                {line.quantity}× {line.productName}
-              </span>
-              <span className="font-semibold text-ink">{money(line.unitPrice * line.quantity)}</span>
+                <div>
+                  <p className="text-ink">
+                    {line.quantity}× {line.productName}
+                    {[line.size, line.color].filter(Boolean).length > 0 && (
+                      <span className="text-ink-soft"> ({[line.size, line.color].filter(Boolean).join(" · ")})</span>
+                    )}
+                  </p>
+                  {line.markingCost != null ? (
+                    <p className="mt-0.5 text-xs text-ink-soft">
+                      Prenda {money(line.garmentCost ?? 0)}/ud + personalización {money(line.markingCost)}/ud ={" "}
+                      {money(line.unitPrice)}/ud
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-xs text-ink-soft">{money(line.unitPrice)}/ud, sin marcaje</p>
+                  )}
+                </div>
+              </div>
+              <span className="shrink-0 font-semibold text-ink">{money(line.unitPrice * line.quantity)}</span>
             </div>
           ))}
         </div>
 
-        <div className="mt-4 flex justify-between border-t border-border pt-4 font-display text-lg font-bold text-ink">
+        <div className="mt-4 flex flex-col gap-1 border-t border-border pt-4 text-sm text-ink-soft">
+          {order.discountAmount > 0 && (
+            <div className="flex justify-between">
+              <span>Descuento</span>
+              <span>-{money(order.discountAmount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span>Envío</span>
+            <span>{order.shippingCost === 0 ? "Gratis" : money(order.shippingCost)}</span>
+          </div>
+        </div>
+
+        <div className="mt-2 flex justify-between border-t border-border pt-4 font-display text-lg font-bold text-ink">
           <span>Total (IVA incl.)</span>
           <span>{money(order.total)}</span>
         </div>

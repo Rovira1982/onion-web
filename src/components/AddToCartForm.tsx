@@ -641,32 +641,26 @@ export default function AddToCartForm({
           <span className="text-xs font-semibold text-ink-soft">
             {sortedVariants.length > 1 ? "Cantidad por talla" : "Cantidad"}
           </span>
-          <div className="mt-2 flex flex-col divide-y divide-border rounded-xl border border-border">
+          {/* Tallas en horizontal (no una lista vertical) — con modelos de
+              muchas tallas alargaba demasiado la ficha de producto, sobre
+              todo en móvil (feedback del dueño, 2026-09-30). */}
+          <div className="mt-2 flex flex-wrap gap-2">
             {sortedVariants.map((v) => {
               const p = pricing.get(v.id);
               const qty = quantities[v.id] ?? 0;
               return (
-                <div key={v.id} className="flex items-center gap-3 px-3 py-2">
-                  <span className="w-16 shrink-0 text-sm font-semibold text-ink">{v.size || "Única"}</span>
+                <div key={v.id} className="flex w-[4.5rem] flex-col items-center gap-1 rounded-xl border border-border p-2">
+                  <span className="text-xs font-semibold text-ink">{v.size || "Única"}</span>
                   <input
                     type="number"
                     min={0}
                     value={qty || ""}
                     placeholder="0"
                     onChange={(e) => setQuantity(v.id, Number(e.target.value))}
-                    className="w-20 rounded-lg border border-border px-2 py-1.5 text-sm text-ink"
+                    className="w-full rounded-lg border border-border px-1 py-1 text-center text-sm text-ink"
                   />
-                  <span className="flex-1 text-right text-xs text-ink-soft">
-                    {qty > 0 && p?.price != null ? (
-                      <>
-                        {money(p.price)}/ud
-                        {p.tier !== "unidad" && <span className="ml-1 text-brand">({p.tier})</span>}
-                      </>
-                    ) : v.stock <= 0 ? (
-                      "Sin stock"
-                    ) : (
-                      ""
-                    )}
+                  <span className="text-center text-[10px] leading-tight text-ink-soft">
+                    {qty > 0 && p?.price != null ? money(p.price) : v.stock <= 0 ? "Sin stock" : " "}
                   </span>
                 </div>
               );
