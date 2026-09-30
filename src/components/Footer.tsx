@@ -1,10 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getTopCategories } from "@/lib/products";
+import { categoryIcon } from "@/lib/category-icon";
 import CookieSettingsButton from "@/components/CookieSettingsButton";
 
 export default async function Footer() {
-  const categories = await getTopCategories(10);
+  const categories = await getTopCategories(30);
 
   return (
     <footer className="mt-24 border-t border-border bg-ink text-white">
@@ -24,18 +25,28 @@ export default async function Footer() {
             </p>
           </div>
 
-          <div>
+          <div className="md:col-span-2">
             <h3 className="font-display text-sm font-bold uppercase tracking-wide text-brand">
               Categorías
             </h3>
-            <ul className="mt-4 space-y-2 text-sm text-white/70">
-              {categories.map((c) => (
-                <li key={c.slug}>
-                  <Link href={`/catalogo?categoria=${c.slug}`} className="hover:text-white">
-                    {c.name}
-                  </Link>
-                </li>
-              ))}
+            {/* Pastillas blancas en vez de texto plano — sobre el fondo
+                oscuro del pie el texto solo no destacaba lo suficiente
+                (feedback del dueño, 2026-09-30). */}
+            <ul className="mt-4 flex flex-wrap gap-2">
+              {categories.map((c) => {
+                const Icon = categoryIcon(c.name);
+                return (
+                  <li key={c.slug}>
+                    <Link
+                      href={`/catalogo?categoria=${c.slug}`}
+                      className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-brand hover:text-white"
+                    >
+                      <Icon size={14} className="shrink-0" aria-hidden="true" />
+                      {c.name}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 

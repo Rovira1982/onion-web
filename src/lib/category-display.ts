@@ -9,7 +9,7 @@
 // back to sentence-case below, which at least stops it shouting in caps.
 const TRANSLATIONS: Record<string, string> = {
   BANYADORS: "Bañadores",
-  "BOSSES I MOTXILLES": "Bolsas y mochilas",
+  "BOSSES I MOTXILLES": "Bolsas",
   CALÇAT: "Calzado",
   CALENDARIS: "Calendarios",
   CÀMERES: "Cámaras",
@@ -34,6 +34,11 @@ const TRANSLATIONS: Record<string, string> = {
   TALLAVENTS: "Cortavientos",
   "TASSES I VAIXELLA": "Tazas y vajilla",
   TESTOS: "Macetas",
+  // Nombres recortados a petición del dueño, 2026-09-30 — sobraba texto
+  // ("días de lluvia" ya implícito en "Invierno", "verano" ya implícito
+  // en "Eventos y fiestas").
+  "Invierno y días de lluvia": "Invierno",
+  "Eventos, fiestas y verano": "Eventos y fiestas",
 };
 
 function toSentenceCase(input: string): string {

@@ -52,21 +52,28 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
       <p className="mt-6 text-ink-soft">{product.description}</p>
 
       {hasVariants && colors.length > 1 && (
-        <div className="mt-5 max-w-xs">
-          <label className="flex flex-col gap-2">
-            <span className="font-display text-sm font-semibold text-ink-soft">Color</span>
-            <select
-              value={selectedColor}
-              onChange={(e) => setSelectedColor(e.target.value)}
-              className="rounded-lg border border-border px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-            >
-              {colors.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="mt-5">
+          <span className="font-display text-sm font-semibold text-ink-soft">Color: {selectedColor}</span>
+          {/* Pastillas tocables en vez de desplegable — el color se elige
+              directamente, sin abrir un <select> (petición del dueño,
+              2026-09-30). */}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {colors.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setSelectedColor(c)}
+                aria-pressed={selectedColor === c}
+                className={`cursor-pointer rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                  selectedColor === c
+                    ? "border-brand bg-brand text-white"
+                    : "border-border text-ink hover:border-brand hover:text-brand"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
