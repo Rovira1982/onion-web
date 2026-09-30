@@ -115,7 +115,15 @@ export default function PacksPage() {
         })}
       </div>
 
-      <p className="mt-10 text-center text-xs text-ink-soft">
+      {/* El pie de página general dice "Precios sin IVA" (cierto para el
+          resto del catálogo) — esta nota es la que aplica aquí y va antes
+          para que no choque visualmente con el pie (detectado por el
+          Diseñador gráfico al revisar la landing, 2026-09-30). */}
+      <p className="mt-10 text-center text-xs font-semibold text-ink">
+        Precio con IVA incluido. Envío y diseño del logo incluidos en estos packs. Mínimo 10 unidades.
+      </p>
+
+      <p className="mt-3 text-center text-xs text-ink-soft">
         ¿Necesitas otra cantidad, técnica o prenda?{" "}
         <Link href="/presupuesto" className="font-semibold text-brand hover:text-brand-dark">
           Calcula tu presupuesto a medida
