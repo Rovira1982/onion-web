@@ -21,7 +21,7 @@ const TRUST_BADGES = [
   },
   {
     title: "Envío gratuito",
-    text: "Sin gastos de transporte a partir de 99 € + IVA de compra.",
+    text: "Sin gastos de transporte a partir de 300 € (IVA incluido).",
   },
 ];
 
