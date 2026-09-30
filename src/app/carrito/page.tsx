@@ -2,11 +2,46 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCart, type CartItem } from "@/lib/cart";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+}
+
+// Un input de cantidad controlado (value=item.quantity) que clampa a min=1
+// en cada tecla se "come" el borrado: al vaciar el campo, Number("") da 0,
+// se clampa a 1 al instante y el campo vuelve a mostrar "1" antes de que el
+// cliente pueda escribir el número real — el "1" nunca se puede quitar.
+// Aquí el campo lleva su propio borrador de texto (permite quedar vacío
+// mientras se edita) y solo confirma/clampa la cantidad real al salir del
+// campo o pulsar Intro.
+function QuantityInput({ value, onCommit }: { value: number; onCommit: (quantity: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  function commit() {
+    const parsed = Math.max(1, Math.floor(Number(draft)) || 1);
+    setDraft(String(parsed));
+    if (parsed !== value) onCommit(parsed);
+  }
+
+  return (
+    <input
+      type="number"
+      min={1}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      className="w-16 rounded-lg border border-border px-2 py-1 text-sm text-ink"
+    />
+  );
 }
 
 function markingSummary(item: CartItem) {
@@ -103,13 +138,7 @@ export default function CarritoPage() {
                     </span>
                     <label className="flex items-center gap-2 text-xs text-ink-soft">
                       Cantidad
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.quantity}
-                        onChange={(e) => updateQuantity(item.id, Math.max(1, Number(e.target.value)))}
-                        className="w-16 rounded-lg border border-border px-2 py-1 text-sm text-ink"
-                      />
+                      <QuantityInput value={item.quantity} onCommit={(q) => updateQuantity(item.id, q)} />
                     </label>
                     <span className="flex-1 text-right text-xs text-ink-soft">{money(item.unitPrice)}/ud</span>
                     <button
