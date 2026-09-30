@@ -49,6 +49,7 @@ export default async function Home() {
   const promotion = await getActivePromotion();
   const occasions = await getOccasions();
   const outletCount = await getOutletCount();
+  const ropaLaboral = occasions.find((o) => o.slug === "ropa-laboral");
 
   return (
     <>
@@ -145,6 +146,30 @@ export default async function Home() {
             </div>
             <span className="shrink-0 font-display text-sm font-bold underline underline-offset-4">
               Ver ofertas →
+            </span>
+          </Link>
+        </section>
+      )}
+
+      {/* Ropa Laboral — banner propio, mismo nivel de protagonismo que
+          Outlet: segmento con mucho potencial de ingresos que hasta hoy no
+          tenía sitio en la navegación (petición del dueño, 2026-09-30). */}
+      {ropaLaboral && ropaLaboral.count > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+          <Link
+            href="/catalogo?ocasion=ropa-laboral"
+            className="flex items-center justify-between gap-4 rounded-2xl bg-brand px-6 py-5 text-white transition-colors hover:bg-brand-dark sm:px-8"
+          >
+            <div>
+              <span className="font-display text-xs font-bold uppercase tracking-wide text-white/70">
+                Ropa Laboral
+              </span>
+              <p className="mt-1 font-display text-lg font-bold sm:text-xl">
+                Alta visibilidad, calzado de seguridad y EPI — {ropaLaboral.count} productos
+              </p>
+            </div>
+            <span className="shrink-0 font-display text-sm font-bold underline underline-offset-4">
+              Ver catálogo →
             </span>
           </Link>
         </section>

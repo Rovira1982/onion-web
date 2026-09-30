@@ -164,6 +164,12 @@ export async function getAllProductSlugsForSitemap(): Promise<{ slug: string; la
 // — reflects real order volume/revenue, not alphabetical. "weight" only
 // controls visual size in the homepage nav (1-3 bigger, 7-8 smaller).
 export const OCCASION_ORDER = [
+  // Ropa Laboral primero a propósito — segmento con mucho potencial de
+  // ingresos (366 productos reales: alta visibilidad, calzado de
+  // seguridad, EPI de marcas especializadas) que hasta hoy no tenía sitio
+  // en la navegación. Petición directa del dueño, 2026-09-30: "se le tiene
+  // que dar más importancia, de ahí puede salir bastante dinero".
+  { slug: "ropa-laboral", name: "Ropa Laboral", weight: "lg" as const },
   { slug: "despedidas", name: "Despedidas de soltero/a", weight: "lg" as const },
   { slug: "penyas-fiestas", name: "Peñas y fiestas de pueblo", weight: "lg" as const },
   { slug: "empresas-equipos", name: "Empresas y equipos", weight: "lg" as const },

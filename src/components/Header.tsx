@@ -4,6 +4,10 @@ import CartBadge from "@/components/CartBadge";
 
 const NAV_LINKS = [
   { href: "/catalogo", label: "Catálogo" },
+  // Segmento con mucho potencial de ingresos (366 productos reales: alta
+  // visibilidad, calzado de seguridad, EPI...) que hasta ahora no tenía
+  // sitio en la navegación — petición directa del dueño, 2026-09-30.
+  { href: "/catalogo?ocasion=ropa-laboral", label: "Ropa Laboral" },
   { href: "/presupuesto", label: "Presupuesto" },
   { href: "/#garantia", label: "Garantía" },
   { href: "/contacto", label: "Contacto" },
