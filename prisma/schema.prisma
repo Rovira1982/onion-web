@@ -102,6 +102,26 @@ model Product {
   material          String?
   engravingTechnique String?
   stock             Int               @default(0)
+  // Maestro de precios (Finanzas, 2026-09-30) — tramos de cantidad del
+  // proveedor a nivel de modelo. Null = sin dato todavía (ver
+  // incompleteData). Uds_caja de ROCK/LUA/DAN ya viene resuelta al máximo
+  // por talla en el maestro, no hace falta lógica especial aquí.
+  unitsPerPack      Int?
+  unitsPerCase      Int?
+  minOrderQty       Int?
+  // Código propio cross-proveedor (prefijo ROL-/STA-/CIF-/TTX-/VAL- +
+  // código del modelo) — soluciona que supplierModelCode solo sea único
+  // dentro de la práctica actual, no por diseño (ver ProductVariant).
+  // Sin @unique todavía: se añade en un paso aparte una vez cargado el
+  // maestro completo, para no necesitar --accept-data-loss sobre una
+  // columna que hoy está vacía en todas las filas.
+  supplierCode      String?
+  // Código recortado para FACTUSOL (máx. 13 caracteres) cuando
+  // supplierCode no cabe — ver Codigos_largos.csv del maestro.
+  factusolCode      String?
+  // true = falta unitsPerPack/unitsPerCase en el maestro; la web debe usar
+  // siempre el precio de unidad (regla de repliegue, nunca precio 0).
+  incompleteData    Boolean           @default(false)
   lastSyncedAt DateTime          @default(now())
   variants     ProductVariant[]
   images       ProductImage[]
@@ -119,6 +139,15 @@ model ProductVariant {
   size              String?
   color             String?
   price             Decimal     @db.Decimal(10, 2)
+  // Maestro de precios — precio de venta (coste × 2) en tramo pack/caja.
+  // Null cuando el modelo no tiene ese tramo (ver Product.unitsPerPack/Case).
+  pricePack         Decimal?    @db.Decimal(10, 2)
+  priceBox          Decimal?    @db.Decimal(10, 2)
+  // Coste real del proveedor por tramo, 4 decimales (el maestro trae hasta
+  // 5) — para desglose en pedidos/informes, nunca se muestra al cliente.
+  costUnit          Decimal?    @db.Decimal(10, 4)
+  costPack          Decimal?    @db.Decimal(10, 4)
+  costBox           Decimal?    @db.Decimal(10, 4)
   stock             Int         @default(0)
   supplierModelCode String      @unique // código real de esta variante en el proveedor (trazabilidad)
   orderLines        OrderLine[]
@@ -187,6 +216,9 @@ model Order {
   discountCodeId     String?
   discountCode       DiscountCode? @relation(fields: [discountCodeId], references: [id])
   discountAmount     Decimal       @default(0) @db.Decimal(10, 2)
+  // Envío al cliente — 6€ fijo, gratis desde 300€ de importe final (con
+  // descuento e IVA incluidos, sin contar el propio envío). Ver crearPedido.
+  shippingCost       Decimal       @default(0) @db.Decimal(10, 2)
   createdAt          DateTime      @default(now())
   lines              OrderLine[]
 
@@ -206,6 +238,14 @@ model OrderLine {
   individualName   String?
   individualNumber String? // dorsal
   unitPrice        Decimal         @db.Decimal(10, 2)
+  // Desglose del precio de la línea — solo para informes/FactuSol, no se
+  // muestra al cliente. garmentCost/markingCost en Decimal(10,2) porque son
+  // precio de venta ya redondeado, no el coste proveedor (ver
+  // ProductVariant.costUnit para eso).
+  garmentCost      Decimal?        @db.Decimal(10, 2)
+  markingCost      Decimal?        @db.Decimal(10, 2)
+  // "unidad" | "pack" | "caja" — qué tramo se aplicó a esta línea.
+  priceTier        String?
   design           DesignConfig?
 
   @@map("order_lines")

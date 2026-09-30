@@ -17,6 +17,13 @@ const PAYMENT_METHODS: { value: "tarjeta" | "bizum" | "transferencia"; label: st
   { value: "transferencia", label: "Transferencia" },
 ];
 
+// Envío al cliente — 6€ fijo, gratis desde 300€ de importe final (con
+// descuento e IVA incluidos, sin contar el propio envío). Debe coincidir
+// exactamente con la regla del servidor en checkout/actions.ts — esto es
+// solo la vista previa, el pedido real se recalcula ahí.
+const SHIPPING_COST = 6;
+const FREE_SHIPPING_THRESHOLD = 300;
+
 export default function CheckoutPage() {
   const { items, subtotal, clear } = useCart();
   const router = useRouter();
@@ -40,7 +47,9 @@ export default function CheckoutPage() {
   const discountAmount = discountResult?.valid ? discountResult.discountAmount : 0;
   const subtotalConDescuento = subtotal - discountAmount;
   const vat = subtotalConDescuento * 0.21;
-  const total = subtotalConDescuento + vat;
+  const totalBeforeShipping = subtotalConDescuento + vat;
+  const shippingCost = totalBeforeShipping >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+  const total = totalBeforeShipping + shippingCost;
 
   async function handleAplicarCodigo() {
     if (!discountCodeInput.trim()) return;
@@ -282,6 +291,16 @@ export default function CheckoutPage() {
               <span>IVA (21%)</span>
               <span>{money(vat)}</span>
             </div>
+            <div className="flex justify-between text-ink-soft">
+              <span>Envío</span>
+              <span>{shippingCost === 0 ? "Gratis" : money(shippingCost)}</span>
+            </div>
+            {shippingCost > 0 && (
+              <p className="text-xs text-ink-soft">
+                Envío gratis a partir de {money(FREE_SHIPPING_THRESHOLD)} (te faltan{" "}
+                {money(FREE_SHIPPING_THRESHOLD - totalBeforeShipping)})
+              </p>
+            )}
             <div className="flex justify-between font-display text-base font-bold text-ink">
               <span>Total</span>
               <span>{money(total)}</span>

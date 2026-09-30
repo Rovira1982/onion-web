@@ -126,7 +126,7 @@ const LPC_HEADERS = [
 ];
 
 export async function buildLineas(
-  order: { id: string },
+  order: { id: string; shippingCost?: number },
   lines: { productName: string; quantity: number; unitPrice: number; supplierModelCode: string; size: string; color: string }[]
 ): Promise<ExcelJS.Buffer> {
   const docNumber = docNumberFor(order.id);
@@ -140,5 +140,13 @@ export async function buildLineas(
       Math.round(line.unitPrice * line.quantity * 100) / 100, 0, line.size, line.color,
     ]);
   });
+  // Envío como línea propia — requiere un Artículo "GASTOS-ENVIO" dado de
+  // alta en FactuSol; el código exacto a usar está por confirmar con Josep.
+  if (order.shippingCost) {
+    ws.addRow([
+      1, docNumber, lines.length + 1, "GASTOS-ENVIO",
+      "Gastos de envío", 1, order.shippingCost, order.shippingCost, 0, "", "",
+    ]);
+  }
   return wb.xlsx.writeBuffer();
 }

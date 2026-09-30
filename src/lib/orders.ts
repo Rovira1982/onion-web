@@ -7,6 +7,7 @@ export type OrderDetail = {
   paymentMethod: string;
   paymentStatus: string;
   total: number;
+  shippingCost: number;
   invoiceName: string;
   invoiceTaxId: string;
   invoiceAddress: string;
@@ -22,6 +23,9 @@ export type OrderDetail = {
     id: string;
     quantity: number;
     unitPrice: number;
+    garmentCost: number | null;
+    markingCost: number | null;
+    priceTier: string | null;
     productName: string;
     previewImageUrl: string | null;
     supplierModelCode: string;
@@ -75,6 +79,7 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
     total: parseFloat(order.total.toString()),
+    shippingCost: parseFloat(order.shippingCost.toString()),
     invoiceName: order.invoiceName,
     invoiceTaxId: order.invoiceTaxId,
     invoiceAddress: order.invoiceAddress,
@@ -90,6 +95,9 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
       id: line.id,
       quantity: line.quantity,
       unitPrice: parseFloat(line.unitPrice.toString()),
+      garmentCost: line.garmentCost ? parseFloat(line.garmentCost.toString()) : null,
+      markingCost: line.markingCost ? parseFloat(line.markingCost.toString()) : null,
+      priceTier: line.priceTier,
       productName: line.productVariant?.product.name ?? "Producto retirado del catálogo",
       previewImageUrl: line.design?.previewImageUrl ?? null,
       supplierModelCode: line.productVariant?.supplierModelCode ?? "",

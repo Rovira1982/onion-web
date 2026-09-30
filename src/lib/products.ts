@@ -26,6 +26,9 @@ type DbProductWithRelations = {
   basePrice: { toString(): string };
   stock: number;
   supplierSku: string;
+  unitsPerPack: number | null;
+  unitsPerCase: number | null;
+  incompleteData: boolean;
   category: { name: string } | null;
   images: { url: string }[];
 };
@@ -43,6 +46,9 @@ function toProduct(p: DbProductWithRelations): Product {
     stock: p.stock,
     material: p.material ?? "",
     engravingTechnique: p.engravingTechnique ?? "",
+    unitsPerPack: p.unitsPerPack,
+    unitsPerCase: p.unitsPerCase,
+    incompleteData: p.incompleteData,
   };
 }
 
@@ -111,6 +117,8 @@ export const getProductBySlug = cache(async (slug: string): Promise<ProductDetai
       size: v.size ?? "",
       color: v.color ?? "",
       price: parseFloat(v.price.toString()),
+      pricePack: v.pricePack ? parseFloat(v.pricePack.toString()) : null,
+      priceBox: v.priceBox ? parseFloat(v.priceBox.toString()) : null,
       stock: v.stock,
       supplierModelCode: v.supplierModelCode,
     })),

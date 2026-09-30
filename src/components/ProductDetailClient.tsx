@@ -146,6 +146,9 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
           productName={product.name}
           image={product.image}
           variant={selected}
+          unitsPerPack={product.unitsPerPack}
+          unitsPerCase={product.unitsPerCase}
+          incompleteData={product.incompleteData}
           category={product.subcategory || product.category}
         />
       )}

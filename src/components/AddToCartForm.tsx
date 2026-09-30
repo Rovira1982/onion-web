@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart";
 import { type PrintSize, type PrintZone, type Technique } from "@/lib/pricing";
 import { personalizedUnitPrice, PERSONALIZED_EXTRA_MARGIN } from "@/lib/line-price";
+import { selectGarmentTier, type GarmentTier } from "@/lib/garment-price";
 import LogoPositioner, { type ZoneTransforms } from "@/components/LogoPositioner";
 import { subirLogo } from "@/app/producto/[slug]/actions";
 import {
@@ -239,12 +240,18 @@ export default function AddToCartForm({
   productName,
   image,
   variant,
+  unitsPerPack,
+  unitsPerCase,
+  incompleteData,
   category,
 }: {
   productSlug: string;
   productName: string;
   image: string;
-  variant: { id: string; size: string; color: string; price: number; stock: number };
+  variant: { id: string; size: string; color: string; price: number; pricePack: number | null; priceBox: number | null; stock: number };
+  unitsPerPack: number | null;
+  unitsPerCase: number | null;
+  incompleteData: boolean;
   category: string;
 }) {
   const canPersonalize = isGarmentCategory(category);
@@ -284,6 +291,22 @@ export default function AddToCartForm({
   // lado, para no cobrar 0.
   const mangasMultiplier = Math.max(1, (mangaIzquierda ? 1 : 0) + (mangaDerecha ? 1 : 0));
 
+  const garmentPricing = useMemo(
+    () =>
+      selectGarmentTier(
+        {
+          price: variant.price,
+          pricePack: variant.pricePack,
+          priceBox: variant.priceBox,
+          unitsPerPack,
+          unitsPerCase,
+          incompleteData,
+        },
+        quantity
+      ),
+    [variant.price, variant.pricePack, variant.priceBox, unitsPerPack, unitsPerCase, incompleteData, quantity]
+  );
+
   const marking = useMemo(
     () =>
       mode === "personalizado"
@@ -293,20 +316,20 @@ export default function AddToCartForm({
             espalda,
             mangas: { ...mangas, multiplier: mangasMultiplier },
             garmentType: "Cliente" as const,
-            garmentUnitCost: variant.price,
+            garmentUnitCost: garmentPricing.price,
             quantity,
             extraMargin: PERSONALIZED_EXTRA_MARGIN,
             personalizedName: false,
           }
         : null,
-    [mode, technique, pecho, espalda, mangas, mangasMultiplier, variant.price, quantity]
+    [mode, technique, pecho, espalda, mangas, mangasMultiplier, garmentPricing.price, quantity]
   );
 
   const unitPrice = useMemo(() => {
-    if (!marking) return variant.price;
+    if (!marking) return garmentPricing.price;
     if (noZoneActive || needsConsultation) return null;
-    return personalizedUnitPrice(marking, variant.price);
-  }, [marking, noZoneActive, needsConsultation, variant.price]);
+    return personalizedUnitPrice(marking, garmentPricing.price);
+  }, [marking, noZoneActive, needsConsultation, garmentPricing.price]);
 
   async function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -365,6 +388,15 @@ export default function AddToCartForm({
       image,
       quantity,
       unitPrice,
+      garmentTier: garmentPricing.tier,
+      garment: {
+        price: variant.price,
+        pricePack: variant.pricePack,
+        priceBox: variant.priceBox,
+        unitsPerPack,
+        unitsPerCase,
+        incompleteData,
+      },
       marking,
       design,
     });
@@ -404,7 +436,15 @@ export default function AddToCartForm({
       )}
 
       {mode === "stock" || !canPersonalize ? (
-        <p className="mt-4 text-sm text-ink-soft">El producto tal cual, sin marcaje. {money(variant.price)}/ud.</p>
+        <p className="mt-4 text-sm text-ink-soft">
+          El producto tal cual, sin marcaje. {money(garmentPricing.price)}/ud.
+          {garmentPricing.tier !== "unidad" && (
+            <span className="ml-1 text-xs text-brand">
+              (precio de {garmentPricing.tier} a partir de{" "}
+              {garmentPricing.tier === "caja" ? unitsPerCase : unitsPerPack} uds)
+            </span>
+          )}
+        </p>
       ) : (
         <div className="mt-4 flex flex-col gap-3">
           <label className="flex flex-col gap-1">

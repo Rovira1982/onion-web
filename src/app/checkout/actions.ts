@@ -3,7 +3,14 @@
 import { prisma } from "@/lib/db";
 import { type QuoteInput } from "@/lib/pricing";
 import { personalizedUnitPrice, PERSONALIZED_EXTRA_MARGIN } from "@/lib/line-price";
+import { selectGarmentTier } from "@/lib/garment-price";
 import { validateDiscountCode, type DiscountCheckResult } from "@/lib/discounts";
+
+// Envío al cliente — 6€ fijo, gratis desde 300€ de importe final (con
+// descuento e IVA incluidos, sin contar el propio envío). Decisión del
+// dueño, 2026-09-30.
+const SHIPPING_COST = 6;
+const FREE_SHIPPING_THRESHOLD = 300;
 
 export type CheckoutDesign = {
   logoFileUrl: string;
@@ -69,13 +76,19 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
   }
 
   const variantIds = input.items.map((i) => i.productVariantId);
-  const variants = await prisma.productVariant.findMany({ where: { id: { in: variantIds } } });
+  const variants = await prisma.productVariant.findMany({
+    where: { id: { in: variantIds } },
+    include: { product: { select: { unitsPerPack: true, unitsPerCase: true, incompleteData: true } } },
+  });
   const variantById = new Map(variants.map((v) => [v.id, v]));
 
   const lines: {
     productVariantId: string;
     quantity: number;
     unitPrice: number;
+    garmentCost: number;
+    markingCost: number | null;
+    priceTier: string;
     design?: { create: CheckoutDesign };
   }[] = [];
   for (const item of input.items) {
@@ -91,21 +104,41 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
     }
 
     const quantity = Math.max(1, Math.floor(item.quantity));
-    // Garment price and margin always come from the server (DB variant price,
-    // fixed business margin) — the browser only decides technique, zones and
-    // quantity, never a cost or margin.
-    const variantPrice = parseFloat(variant.price.toString());
-    const unitPrice = item.marking
-      ? personalizedUnitPrice(
-          { ...item.marking, quantity, extraMargin: PERSONALIZED_EXTRA_MARGIN, garmentUnitCost: variantPrice },
-          variantPrice
-        )
-      : variantPrice;
+    // Garment tier (unidad/pack/caja) and the fixed business margin always
+    // come from the server (DB data) — the browser only decides technique,
+    // zones and quantity, never a cost, margin or tier.
+    const garmentPricing = selectGarmentTier(
+      {
+        price: parseFloat(variant.price.toString()),
+        pricePack: variant.pricePack ? parseFloat(variant.pricePack.toString()) : null,
+        priceBox: variant.priceBox ? parseFloat(variant.priceBox.toString()) : null,
+        unitsPerPack: variant.product.unitsPerPack,
+        unitsPerCase: variant.product.unitsPerCase,
+        incompleteData: variant.product.incompleteData,
+      },
+      quantity
+    );
+
+    let unitPrice: number | null = garmentPricing.price;
+    let markingCost: number | null = null;
+    if (item.marking) {
+      unitPrice = personalizedUnitPrice(
+        { ...item.marking, quantity, extraMargin: PERSONALIZED_EXTRA_MARGIN, garmentUnitCost: garmentPricing.price },
+        garmentPricing.price
+      );
+      if (unitPrice !== null) markingCost = Math.round((unitPrice - garmentPricing.price) * 100) / 100;
+    }
+    if (unitPrice === null) {
+      return { error: "Una de las técnicas de marcaje elegidas no tiene precio online para esa cantidad — pide presupuesto." };
+    }
 
     lines.push({
       productVariantId: item.productVariantId,
       quantity,
       unitPrice,
+      garmentCost: garmentPricing.price,
+      markingCost,
+      priceTier: garmentPricing.tier,
       ...(item.design ? { design: { create: item.design } } : {}),
     });
   }
@@ -147,7 +180,9 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
         discountAmount = subtotal * (found.percentage / 100);
       }
 
-      const total = (subtotal - discountAmount) * 1.21; // IVA incl. — matches what the checkout page shows the customer
+      const totalBeforeShipping = (subtotal - discountAmount) * 1.21; // IVA incl. — matches what the checkout page shows the customer
+      const shippingCost = totalBeforeShipping >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+      const total = totalBeforeShipping + shippingCost;
 
       return tx.order.create({
         data: {
@@ -155,6 +190,7 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
           paymentMethod: input.paymentMethod,
           paymentStatus: "pendiente",
           total,
+          shippingCost,
           discountCodeId,
           discountAmount,
           invoiceName: input.invoiceName,

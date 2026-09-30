@@ -1,18 +1,35 @@
-import { calculateQuote, type QuoteInput } from "@/lib/pricing";
+import type { QuoteInput } from "@/lib/pricing";
+import { markingUnitPrice } from "@/lib/marking-tariff";
 
-// Fixed business margin — the customer never sets their own margin, this
-// mirrors the default already used across the presupuestador (Excel's own
-// default, Margen_extra = 0.7). Shared by client and server so checkout
-// never depends on a margin sent from the browser.
+// Historical constant — no longer used by personalizedUnitPrice (the new
+// marking-tariff.ts prices are already final sale prices, market-checked,
+// not a cost×margin formula). Kept exported because callers still build a
+// full QuoteInput (calculateQuote's shape, shared with the presupuesto
+// pages) and pass this as its extraMargin field.
 export const PERSONALIZED_EXTRA_MARGIN = 0.7;
 
 // Unit price of a personalized cart line = the garment at its catalog price
-// (variant.price, which already carries the supplier ×2 from the importers)
-// + the marking priced on its own by calculateQuote with the garment cost
-// zeroed out. Previously the catalog price was fed into calculateQuote as
-// the garment cost, so the garment got marked up a second time
-// (×1.4 × (1 + extraMargin) × quantity factor), ~4.8× its real cost.
-export function personalizedUnitPrice(marking: QuoteInput, garmentPrice: number): number {
-  const marks = calculateQuote({ ...marking, garmentUnitCost: 0 }).finalUnitPrices.recommended;
-  return Math.round((garmentPrice + marks) * 100) / 100;
+// (already tiered by quantity — see garment-price.ts) + the marking, priced
+// per active zone from the market-benchmarked tariff (marking-tariff.ts).
+// Each active zone is billed separately (pecho/espalda count once, mangas
+// counts once per side chosen) — confirmed with the business, 2026-09-30.
+// Returns null when any active zone's technique/quantity combination has no
+// set price yet (Serigrafía under 10 units) — caller must route to "pide
+// presupuesto" same as REQUIRES_CONSULTATION today.
+export function personalizedUnitPrice(marking: QuoteInput, garmentPrice: number): number | null {
+  const zones: { active: boolean; size: QuoteInput["pecho"]["size"]; colors: number; count: number }[] = [
+    { ...marking.pecho, count: 1 },
+    { ...marking.espalda, count: 1 },
+    { ...marking.mangas, count: marking.mangas.multiplier ?? 1 },
+  ];
+
+  let markTotal = 0;
+  for (const zone of zones) {
+    if (!zone.active) continue;
+    const unitPrice = markingUnitPrice(marking.technique, zone, marking.quantity);
+    if (unitPrice === null) return null;
+    markTotal += unitPrice * zone.count;
+  }
+
+  return Math.round((garmentPrice + markTotal) * 100) / 100;
 }

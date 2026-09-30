@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { type QuoteInput } from "@/lib/pricing";
 import { personalizedUnitPrice } from "@/lib/line-price";
+import { selectGarmentTier, type GarmentPriceInput, type GarmentTier } from "@/lib/garment-price";
 
 // A cart line is either a plain "stock" purchase (marking: null, price is the
 // variant's own price) or a personalized one (marking holds the full
@@ -31,6 +32,12 @@ export type CartItem = {
   image: string;
   quantity: number;
   unitPrice: number;
+  // Garment tier pricing (unidad/pack/caja) — maestro de precios,
+  // 2026-09-30. `garment` carries what's needed to recompute the tier on a
+  // quantity change; `garmentTier` is the tier applied at the current
+  // quantity, shown to the customer and saved on the order line.
+  garment: GarmentPriceInput;
+  garmentTier: GarmentTier;
   marking: QuoteInput | null;
   design: CartDesign | null;
 };
@@ -87,18 +94,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
-  // Personalized items price by quantity tier (technique floor, bulk
-  // discount), so a quantity change must re-price locally too — otherwise
+  // Both the garment tier (unidad/pack/caja) and the marking price depend
+  // on quantity, so a quantity change must re-price locally too — otherwise
   // the cart total would drift from what checkout actually recalculates.
   const updateQuantity = useCallback((id: string, quantity: number) => {
     const safeQuantity = Math.max(1, quantity);
     setItems((prev) =>
       prev.map((i) => {
         if (i.id !== id) return i;
-        if (!i.marking) return { ...i, quantity: safeQuantity };
-        const marking = { ...i.marking, quantity: safeQuantity };
-        // marking.garmentUnitCost holds the garment's catalog price (variant.price).
-        return { ...i, quantity: safeQuantity, marking, unitPrice: personalizedUnitPrice(marking, marking.garmentUnitCost) };
+        const garmentPricing = selectGarmentTier(i.garment, safeQuantity);
+        if (!i.marking) {
+          return { ...i, quantity: safeQuantity, unitPrice: garmentPricing.price, garmentTier: garmentPricing.tier };
+        }
+        const marking = { ...i.marking, quantity: safeQuantity, garmentUnitCost: garmentPricing.price };
+        const unitPrice = personalizedUnitPrice(marking, garmentPricing.price);
+        // Some technique/quantity combinations have no set price yet
+        // (Serigrafía under 10 units) — keep the previous valid quantity
+        // rather than showing a broken/zeroed line; checkout would reject
+        // it anyway.
+        if (unitPrice === null) return i;
+        return { ...i, quantity: safeQuantity, marking, unitPrice, garmentTier: garmentPricing.tier };
       })
     );
   }, []);

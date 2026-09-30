@@ -14,6 +14,12 @@ export type Product = {
   stock: number;
   material: string;
   engravingTechnique: string;
+  // Maestro de precios (Finanzas, 2026-09-30) — tramos de cantidad a nivel
+  // de modelo. Null = sin dato; incompleteData=true fuerza precio de unidad
+  // siempre (regla de repliegue, ver src/lib/garment-price.ts).
+  unitsPerPack: number | null;
+  unitsPerCase: number | null;
+  incompleteData: boolean;
 };
 
 export type ProductVariant = {
@@ -21,6 +27,8 @@ export type ProductVariant = {
   size: string;
   color: string;
   price: number;
+  pricePack: number | null;
+  priceBox: number | null;
   stock: number;
   supplierModelCode: string;
 };

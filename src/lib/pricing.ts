@@ -36,7 +36,7 @@ export type QuoteInput = {
 };
 
 export const BASE_COSTS = {
-  Coste_hora_base: 6, // €/h — labor
+  Coste_hora_base: 13, // €/h — labor (dueño, 2026-09-30: salario + SS del operario; antes 6€, coste histórico sin cotización)
   Coste_hora_fijos: 6.9, // €/h — fixed-overhead allocation (1.100€/mes ÷ 160h)
   Vinilo_metro: 6,
   Consumibles_pedido: 2, // € flat per order
