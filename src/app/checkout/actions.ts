@@ -6,6 +6,8 @@ import { personalizedUnitPrice, PERSONALIZED_EXTRA_MARGIN } from "@/lib/line-pri
 import { selectGarmentTier } from "@/lib/garment-price";
 import { groupQuantityTotals } from "@/lib/design-group";
 import { validateDiscountCode, type DiscountCheckResult } from "@/lib/discounts";
+import { getPack, type PackDefinition } from "@/lib/packs";
+import { slugify } from "@/lib/product-format";
 
 // Envío al cliente — 6€ fijo, gratis desde 300€ de importe final (con
 // descuento e IVA incluidos, sin contar el propio envío). Decisión del
@@ -33,6 +35,12 @@ export type CheckoutCartItem = {
   // id — el precio de marcaje se calcula sobre la cantidad TOTAL del grupo
   // (ver groupQuantityTotals), nunca sobre la de una talla sola.
   designGroupId?: string;
+  // Código de pack de precio cerrado (ver src/lib/packs.ts) — si está
+  // presente, el servidor IGNORA marking para el precio y usa el total fijo
+  // del pack. Nunca se confía en un precio enviado por el cliente para
+  // ningún caso, y esto no es una excepción: el precio sale de PACKS, no
+  // del carrito.
+  packCode?: string;
 };
 
 export type CheckoutInput = {
@@ -83,7 +91,9 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
   const variantIds = input.items.map((i) => i.productVariantId);
   const variants = await prisma.productVariant.findMany({
     where: { id: { in: variantIds } },
-    include: { product: { select: { unitsPerPack: true, unitsPerCase: true, incompleteData: true } } },
+    include: {
+      product: { select: { name: true, supplierSku: true, unitsPerPack: true, unitsPerCase: true, incompleteData: true } },
+    },
   });
   const variantById = new Map(variants.map((v) => [v.id, v]));
 
@@ -95,6 +105,58 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
   // already computed client-side (never trusted as-is, just mirrored here).
   const normalizedItems = input.items.map((item) => ({ ...item, quantity: Math.max(1, Math.floor(item.quantity)) }));
   const groupTotals = groupQuantityTotals(normalizedItems);
+  const groupKey = (item: (typeof normalizedItems)[number], idx: number) => item.designGroupId ?? `__solo_${idx}`;
+
+  // Packs de precio cerrado (ver src/lib/packs.ts) — el precio NUNCA sale
+  // del cliente ni de calculateQuote: sale de PACKS, validado aquí contra
+  // el producto real y la cantidad exacta exigida. unitPrice per group is
+  // the same pre-IVA figure for every line/unit in it — small per-unit
+  // rounding (cents) is accepted, same tolerance the rest of the pricing
+  // pipeline already has (mround to 0.05/0.01 elsewhere).
+  const packUnitPriceByGroup = new Map<string, number>();
+  const packDefByGroup = new Map<string, PackDefinition>();
+  const seenPackGroups = new Set<string>();
+  for (const [idx, item] of normalizedItems.entries()) {
+    if (!item.packCode) continue;
+    const key = groupKey(item, idx);
+    if (seenPackGroups.has(key)) continue;
+    seenPackGroups.add(key);
+
+    const pack = getPack(item.packCode);
+    if (!pack) return { error: "Código de pack no válido." };
+
+    const groupIndices = normalizedItems.map((_, i) => i).filter((i) => groupKey(normalizedItems[i], i) === key);
+    if (!groupIndices.every((i) => normalizedItems[i].packCode === item.packCode)) {
+      return { error: "Un pack de precio cerrado no se puede combinar con otras líneas en el mismo grupo." };
+    }
+    const groupQty = groupIndices.reduce((sum, i) => sum + normalizedItems[i].quantity, 0);
+    if (groupQty !== pack.quantity) {
+      return { error: `Este pack requiere exactamente ${pack.quantity} unidades (hay ${groupQty}).` };
+    }
+
+    const variant = variantById.get(item.productVariantId);
+    if (!variant) return { error: "Uno de los productos del carrito ya no está disponible." };
+    const variantSlug = slugify(`${variant.product.name}-${variant.product.supplierSku}`);
+    if (variantSlug !== pack.productSlug) {
+      return { error: "Este código de pack no es válido para este producto." };
+    }
+
+    packUnitPriceByGroup.set(key, Math.round((pack.totalPrice / 1.21 / pack.quantity) * 100) / 100);
+    packDefByGroup.set(key, pack);
+  }
+  const hasPackItem = packUnitPriceByGroup.size > 0;
+
+  // Redondear cada unidad a céntimos hace que (unitPrice × qty) × 1.21 no
+  // caiga exactamente en pack.totalPrice (p.ej. 69,00€ real puede salir en
+  // 68,97€) — se corrige aquí, sumada directamente al total con IVA, para
+  // que el pedido cobre SIEMPRE el precio anunciado del pack, céntimo
+  // exacto.
+  let packVatCorrection = 0;
+  for (const [key, unitPrice] of packUnitPriceByGroup) {
+    const pack = packDefByGroup.get(key)!;
+    const computed = Math.round(unitPrice * pack.quantity * 1.21 * 100) / 100;
+    packVatCorrection += Math.round((pack.totalPrice - computed) * 100) / 100;
+  }
 
   const lines: {
     productVariantId: string;
@@ -135,7 +197,12 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
 
     let unitPrice: number | null = garmentPricing.price;
     let markingCost: number | null = null;
-    if (item.marking) {
+    if (item.packCode) {
+      // Precio fijo del pack, ya validado arriba — nunca pasa por
+      // personalizedUnitPrice ni por el marcaje que mande el cliente.
+      unitPrice = packUnitPriceByGroup.get(groupKey(item, idx))!;
+      markingCost = Math.round((unitPrice - garmentPricing.price) * 100) / 100;
+    } else if (item.marking) {
       unitPrice = personalizedUnitPrice(
         {
           ...item.marking,
@@ -200,8 +267,10 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
       }
 
       const totalBeforeShipping = (subtotal - discountAmount) * 1.21; // IVA incl. — matches what the checkout page shows the customer
-      const shippingCost = totalBeforeShipping >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
-      const total = totalBeforeShipping + shippingCost;
+      // Envío absorbido en los packs de precio cerrado (decisión del dueño,
+      // 2026-09-30, "para crear marca") — su precio anunciado ya lo incluye.
+      const shippingCost = hasPackItem || totalBeforeShipping >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+      const total = totalBeforeShipping + shippingCost + packVatCorrection;
 
       return tx.order.create({
         data: {

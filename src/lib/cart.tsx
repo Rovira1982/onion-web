@@ -48,6 +48,11 @@ export type CartItem = {
   // fuera un pedido aparte). Undefined en carritos guardados antes de este
   // cambio — se tratan como grupo de una sola línea.
   designGroupId?: string;
+  // Código de pack de precio cerrado (ver src/lib/packs.ts), si esta línea
+  // viene de /packs — checkout ignora unitPrice/marking para el precio real
+  // y usa el total fijo del pack en su lugar. unitPrice aquí es solo el
+  // reparto orientativo para mostrar en el carrito.
+  packCode?: string;
 };
 
 type CartContextValue = {
@@ -128,6 +133,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const groupTotals = groupQuantityTotals(withNewQuantity);
 
       return withNewQuantity.map((i, idx) => {
+        // Packs de precio cerrado no se editan línea a línea (ver
+        // carrito/page.tsx, que ya no expone el input de cantidad para
+        // ellos) — si algo llegara a invocar esto de todas formas, no hay
+        // fórmula de repreciado válida para un pack, así que no se toca.
+        if (i.packCode) return i;
         const garmentPricing = selectGarmentTier(i.garment, i.quantity);
         if (!i.marking) {
           return { ...i, unitPrice: garmentPricing.price, garmentTier: garmentPricing.tier };

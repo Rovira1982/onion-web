@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getOrderById } from "@/lib/orders";
+import { getOrderConfirmation } from "@/lib/orders";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -9,7 +9,7 @@ function money(n: number) {
 
 export default async function GraciasPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const order = await getOrderById(id);
+  const order = await getOrderConfirmation(id);
   if (!order) notFound();
 
   return (

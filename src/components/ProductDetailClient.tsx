@@ -5,12 +5,20 @@ import Link from "next/link";
 import Image from "next/image";
 import { describeEngravingTechnique, describeMaterial, type ProductDetail } from "@/lib/product-format";
 import AddToCartForm from "@/components/AddToCartForm";
+import PackAddToCartForm from "@/components/PackAddToCartForm";
+import { type PackDefinition } from "@/lib/packs";
 
 function money(n: number) {
   return n.toFixed(2).replace(".", ",") + " €";
 }
 
-export default function ProductDetailClient({ product }: { product: ProductDetail }) {
+export default function ProductDetailClient({
+  product,
+  pack,
+}: {
+  product: ProductDetail;
+  pack?: PackDefinition | null;
+}) {
   const { variants } = product;
   const colors = useMemo(
     () => Array.from(new Set(variants.map((v) => v.color).filter(Boolean))),
@@ -104,7 +112,17 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
         </div>
       </dl>
 
-      {variantsForColor.length > 0 && (
+      {variantsForColor.length > 0 && pack && (
+        <PackAddToCartForm
+          productSlug={product.slug}
+          productName={product.name}
+          image={product.image}
+          variants={variantsForColor}
+          pack={pack}
+        />
+      )}
+
+      {variantsForColor.length > 0 && !pack && (
         <AddToCartForm
           productSlug={product.slug}
           productName={product.name}

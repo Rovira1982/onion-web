@@ -66,8 +66,7 @@ export async function listOrders(): Promise<OrderSummary[]> {
   }));
 }
 
-export async function getOrderById(id: string): Promise<OrderDetail | null> {
-  await requireAdmin();
+async function fetchOrderDetail(id: string): Promise<OrderDetail | null> {
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
@@ -109,4 +108,21 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
       color: line.productVariant?.color ?? "",
     })),
   };
+}
+
+// Panel de admin — requiere sesión de admin.
+export async function getOrderById(id: string): Promise<OrderDetail | null> {
+  await requireAdmin();
+  return fetchOrderDetail(id);
+}
+
+// Página pública "gracias" tras el checkout — sin login (el checkout mismo
+// tampoco lo exige). El id del pedido es un UUID no adivinable, así que
+// hace de token de acceso, igual que en el resto del flujo de compra. Bug
+// real encontrado en directo, 2026-09-30: getOrderById exigía admin desde
+// que se cerró el TODO de la Fase 0 de "tandas", así que esta página
+// llevaba desde entonces dando error 500 a cualquier cliente real que
+// terminara un pedido.
+export async function getOrderConfirmation(id: string): Promise<OrderDetail | null> {
+  return fetchOrderDetail(id);
 }

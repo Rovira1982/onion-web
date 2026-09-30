@@ -45,6 +45,7 @@ function QuantityInput({ value, onCommit }: { value: number; onCommit: (quantity
 }
 
 function markingSummary(item: CartItem) {
+  if (item.packCode) return "Pack de precio cerrado";
   if (!item.marking) return "Pedido de stock, sin marcaje";
   const { technique, pecho, espalda, mangas } = item.marking;
   const zones = [
@@ -74,6 +75,10 @@ function groupItems(items: CartItem[]): CartItem[][] {
     groups.get(key)!.push(item);
   });
   return order.map((key) => groups.get(key)!);
+}
+
+function removeGroup(group: CartItem[], removeItem: (id: string) => void) {
+  group.forEach((item) => removeItem(item.id));
 }
 
 export default function CarritoPage() {
@@ -130,27 +135,47 @@ export default function CarritoPage() {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-col divide-y divide-border border-t border-border">
-                {group.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3 py-2">
-                    <span className="w-24 shrink-0 text-xs text-ink-soft">
-                      {[item.size, item.color].filter(Boolean).join(" · ") || "—"}
-                    </span>
-                    <label className="flex items-center gap-2 text-xs text-ink-soft">
-                      Cantidad
-                      <QuantityInput value={item.quantity} onCommit={(q) => updateQuantity(item.id, q)} />
-                    </label>
-                    <span className="flex-1 text-right text-xs text-ink-soft">{money(item.unitPrice)}/ud</span>
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.id)}
-                      className="cursor-pointer text-xs font-semibold text-ink-soft hover:text-red-600"
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                ))}
-              </div>
+              {first.packCode ? (
+                // Pack de precio cerrado: el reparto de tallas se fijó al
+                // añadirlo (ver PackAddToCartForm) — no se edita por línea,
+                // solo se quita el pack entero (petición del dueño,
+                // 2026-09-30: el total tiene que seguir cuadrando con el
+                // precio fijo del pack).
+                <div className="mt-3 border-t border-border pt-2">
+                  <p className="text-xs text-ink-soft">
+                    {group.map((item) => `${item.size} ×${item.quantity}`).join(", ")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => removeGroup(group, removeItem)}
+                    className="mt-2 cursor-pointer text-xs font-semibold text-ink-soft hover:text-red-600"
+                  >
+                    Quitar pack
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-3 flex flex-col divide-y divide-border border-t border-border">
+                  {group.map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 py-2">
+                      <span className="w-24 shrink-0 text-xs text-ink-soft">
+                        {[item.size, item.color].filter(Boolean).join(" · ") || "—"}
+                      </span>
+                      <label className="flex items-center gap-2 text-xs text-ink-soft">
+                        Cantidad
+                        <QuantityInput value={item.quantity} onCommit={(q) => updateQuantity(item.id, q)} />
+                      </label>
+                      <span className="flex-1 text-right text-xs text-ink-soft">{money(item.unitPrice)}/ud</span>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.id)}
+                        className="cursor-pointer text-xs font-semibold text-ink-soft hover:text-red-600"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

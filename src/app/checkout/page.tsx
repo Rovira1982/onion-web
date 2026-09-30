@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCart } from "@/lib/cart";
 import { crearPedido, comprobarCodigoDescuento } from "./actions";
 import type { DiscountCheckResult } from "@/lib/discounts";
+import { getPack } from "@/lib/packs";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -48,8 +49,30 @@ export default function CheckoutPage() {
   const subtotalConDescuento = subtotal - discountAmount;
   const vat = subtotalConDescuento * 0.21;
   const totalBeforeShipping = subtotalConDescuento + vat;
-  const shippingCost = totalBeforeShipping >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
-  const total = totalBeforeShipping + shippingCost;
+  // Envío absorbido en los packs de precio cerrado — debe coincidir con la
+  // misma regla del servidor (ver crearPedido) o esta vista previa
+  // prometería un total distinto del que realmente se cobra.
+  const hasPackItem = items.some((i) => i.packCode);
+  const shippingCost = hasPackItem || totalBeforeShipping >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+  // Mismo redondeo a céntimos que el servidor (ver crearPedido) — sin esta
+  // corrección la vista previa se quedaría unos céntimos por debajo del
+  // precio de pack anunciado.
+  const packGroups = new Map<string, { subtotal: number; totalPrice: number }>();
+  items.forEach((item, idx) => {
+    if (!item.packCode) return;
+    const pack = getPack(item.packCode);
+    if (!pack) return;
+    const key = item.designGroupId ?? `__solo_${idx}`;
+    const g = packGroups.get(key) ?? { subtotal: 0, totalPrice: pack.totalPrice };
+    g.subtotal += item.unitPrice * item.quantity;
+    packGroups.set(key, g);
+  });
+  let packVatCorrection = 0;
+  for (const g of packGroups.values()) {
+    const computed = Math.round(g.subtotal * 1.21 * 100) / 100;
+    packVatCorrection += Math.round((g.totalPrice - computed) * 100) / 100;
+  }
+  const total = totalBeforeShipping + shippingCost + packVatCorrection;
 
   async function handleAplicarCodigo() {
     if (!discountCodeInput.trim()) return;
@@ -85,6 +108,7 @@ export default function CheckoutPage() {
         marking: i.marking,
         design: i.design,
         designGroupId: i.designGroupId,
+        packCode: i.packCode,
       })),
       invoiceName,
       invoiceTaxId,

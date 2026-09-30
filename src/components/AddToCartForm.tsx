@@ -17,7 +17,7 @@ import {
   type MockupColor,
 } from "@/lib/garment-mockup";
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -26,7 +26,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-function dataUrlToFile(dataUrl: string, filename: string): File {
+export function dataUrlToFile(dataUrl: string, filename: string): File {
   const [header, base64] = dataUrl.split(",");
   const mime = header.match(/:(.*?);/)?.[1] ?? "image/png";
   const binary = atob(base64);
@@ -39,7 +39,7 @@ function dataUrlToFile(dataUrl: string, filename: string): File {
 // zone's transform), laid out side by side. The mockup photos are our own
 // (public/mockups/), same-origin, so drawImage/toDataURL never hits the
 // canvas-taint issue a supplier's own CDN photo would.
-async function renderZonesPreview(
+export async function renderZonesPreview(
   logoUrl: string,
   transforms: ZoneTransforms,
   garment: MockupGarment,
@@ -248,7 +248,7 @@ function isGarmentCategory(category: string): boolean {
   return GARMENT_KEYWORDS.some((k) => lower.includes(k));
 }
 
-type FormVariant = {
+export type FormVariant = {
   id: string;
   size: string;
   color: string;

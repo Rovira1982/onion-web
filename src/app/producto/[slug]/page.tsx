@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
 import ProductDetailClient, { ProductImageBox } from "@/components/ProductDetailClient";
 import { getProductBySlug, getProductsByCategorySlug, slugify } from "@/lib/products";
+import { getPack } from "@/lib/packs";
 
 export async function generateMetadata({
   params,
@@ -34,12 +35,21 @@ export async function generateMetadata({
 
 export default async function ProductoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ pack?: string }>;
 }) {
   const { slug } = await params;
+  const { pack: packCode } = await searchParams;
   const product = await getProductBySlug(slug);
   if (!product) notFound();
+
+  // El código de pack solo es válido sobre la ficha de producto que le
+  // corresponde (ver src/lib/packs.ts) — en cualquier otro producto se
+  // ignora y la ficha se comporta como siempre.
+  const pack = getPack(packCode);
+  const activePack = pack && pack.productSlug === product.slug ? pack : null;
 
   const categorySlug = slugify(product.category);
   const related = (await getProductsByCategorySlug(categorySlug, 8)).filter((p) => p.slug !== product.slug).slice(0, 4);
@@ -59,7 +69,7 @@ export default async function ProductoPage({
 
       <div className="mt-6 grid gap-10 lg:grid-cols-2">
         <ProductImageBox src={product.image} alt={product.name} />
-        <ProductDetailClient product={product} />
+        <ProductDetailClient product={product} pack={activePack} />
       </div>
 
       {related.length > 0 && (
