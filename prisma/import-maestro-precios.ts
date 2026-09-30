@@ -25,6 +25,11 @@ type ModeloRow = {
   Uds_pack: string;
   Uds_caja: string;
   Cant_min_pedido: string;
+  Coste_ud_min: string;
+  // v1.3 (Finanzas, 2026-09-30): raíz sin color — para Cifra varias filas
+  // (una por color) comparten Modelo_raiz y son EL MISMO Product en mi BD;
+  // para el resto de proveedores Modelo_raiz === Codigo_proveedor.
+  Modelo_raiz: string;
 };
 
 type VarianteRow = {
@@ -92,34 +97,53 @@ async function main() {
     )
   );
 
+  // v1.3: agrupar por (Proveedor, Modelo_raiz) — Cifra trae varias filas
+  // (una por color) que son el mismo Product en mi BD; el resto de
+  // proveedores tiene Modelo_raiz === Codigo_proveedor, grupo de 1.
+  // Criterio acordado con Finanzas: Coste_ud_min = el más bajo del grupo;
+  // el resto de campos (Uds_pack/Uds_caja/Cant_min_pedido/Codigo_Onion) del
+  // primer hijo por orden de Codigo_proveedor.
+  const modeloGroups = new Map<string, ModeloRow[]>();
+  for (const row of modelos) {
+    const key = `${row.Proveedor}|${row.Modelo_raiz}`;
+    const group = modeloGroups.get(key);
+    if (group) group.push(row);
+    else modeloGroups.set(key, [row]);
+  }
+
   let modelosUpdated = 0;
   let modelosNotFound = 0;
   let modelosIncomplete = 0;
+  let modelosGrouped = 0;
   const notFoundExamples: string[] = [];
 
-  for (const row of modelos) {
-    const supplier = supplierByName.get(row.Proveedor);
+  for (const [, group] of modeloGroups) {
+    const sorted = group.slice().sort((a, b) => a.Codigo_proveedor.localeCompare(b.Codigo_proveedor));
+    const first = sorted[0];
+    if (sorted.length > 1) modelosGrouped++;
+
+    const supplier = supplierByName.get(first.Proveedor);
     if (!supplier) {
       modelosNotFound++;
-      if (notFoundExamples.length < 5) notFoundExamples.push(`proveedor desconocido: ${row.Proveedor}`);
+      if (notFoundExamples.length < 5) notFoundExamples.push(`proveedor desconocido: ${first.Proveedor}`);
       continue;
     }
-    const unitsPerPack = toNumOrNull(row.Uds_pack);
-    const unitsPerCase = toNumOrNull(row.Uds_caja);
-    const minOrderQty = toNumOrNull(row.Cant_min_pedido);
+    const unitsPerPack = toNumOrNull(first.Uds_pack);
+    const unitsPerCase = toNumOrNull(first.Uds_caja);
+    const minOrderQty = toNumOrNull(first.Cant_min_pedido);
     const incompleteData = unitsPerPack === null || unitsPerCase === null;
     if (incompleteData) modelosIncomplete++;
 
-    const factusolCode = factusolByKey.get(`${row.Proveedor}|${row.Codigo_proveedor}`) ?? row.Codigo_Onion;
+    const factusolCode = factusolByKey.get(`${first.Proveedor}|${first.Codigo_proveedor}`) ?? first.Codigo_Onion;
 
     if (APPLY) {
       const result = await prisma.product.updateMany({
-        where: { supplierId: supplier.id, supplierSku: row.Codigo_proveedor },
+        where: { supplierId: supplier.id, supplierSku: first.Modelo_raiz },
         data: {
           unitsPerPack,
           unitsPerCase,
           minOrderQty,
-          supplierCode: row.Codigo_Onion,
+          supplierCode: first.Codigo_Onion,
           factusolCode,
           incompleteData,
         },
@@ -127,19 +151,19 @@ async function main() {
       if (result.count > 0) modelosUpdated += result.count;
       else {
         modelosNotFound++;
-        if (notFoundExamples.length < 5) notFoundExamples.push(`${row.Proveedor} ${row.Codigo_proveedor} (modelo no encontrado en BD)`);
+        if (notFoundExamples.length < 5) notFoundExamples.push(`${first.Proveedor} ${first.Modelo_raiz} (modelo no encontrado en BD)`);
       }
     } else {
-      if (existingProductKeys.has(`${supplier.id}|${row.Codigo_proveedor}`)) {
+      if (existingProductKeys.has(`${supplier.id}|${first.Modelo_raiz}`)) {
         modelosUpdated++;
       } else {
         modelosNotFound++;
-        if (notFoundExamples.length < 5) notFoundExamples.push(`${row.Proveedor} ${row.Codigo_proveedor} (modelo no encontrado en BD)`);
+        if (notFoundExamples.length < 5) notFoundExamples.push(`${first.Proveedor} ${first.Modelo_raiz} (modelo no encontrado en BD)`);
       }
     }
   }
 
-  console.log(`\nModelos: ${modelosUpdated} encontrados/actualizados, ${modelosNotFound} no encontrados, ${modelosIncomplete} con dato incompleto (repliegue a unidad).`);
+  console.log(`\nModelos: ${modelosUpdated} encontrados/actualizados, ${modelosNotFound} no encontrados, ${modelosIncomplete} con dato incompleto (repliegue a unidad), ${modelosGrouped} agrupados por Modelo_raiz (varios colores → 1 Product).`);
   if (notFoundExamples.length) console.log("Ejemplos no encontrados:", notFoundExamples);
 
   let variantesUpdated = 0;

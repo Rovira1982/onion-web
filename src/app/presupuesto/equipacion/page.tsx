@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  calculateTeamGarmentQuote,
   BASE_COSTS,
   GARMENT_REFERENCE_COST,
   CARGO_NOMBRE_EQUIPACION,
@@ -11,8 +10,8 @@ import {
   type Technique,
   type PrintSize,
   type GarmentType,
-  type DtfMark,
 } from "@/lib/pricing";
+import { markingUnitPrice } from "@/lib/marking-tariff";
 
 // Mangas: solo Serigrafía o DTF. El vinilo, en este presupuestador, se
 // reserva para nombre/dorsal (cargo fijo más abajo) — no es una opción de
@@ -93,32 +92,40 @@ export default function EquipacionPresupuestoPage() {
 
   const noMarkActive = !bolsilloIzq && !bolsilloDer && !diafragma && !nombre && !dorsal && !logoEspalda && !mangasActive;
 
+  // Marcaje: tarifa de mercado (marking-tariff.ts) — cada marca DTF del
+  // pecho/espalda se cobra por separado, igual que antes (Anexo A). Nombre
+  // y dorsal siguen siendo cargos fijos en vinilo (no están en la tarifa
+  // nueva, que solo cubre pecho/espalda/mangas). null = alguna marca no
+  // tiene precio online todavía (Serigrafía <10 uds en mangas).
   const result = useMemo(() => {
     if (noMarkActive || quantity <= 0) return null;
 
-    const pechoMarks: DtfMark[] = [
-      { position: "bolsillo_izq", active: bolsilloIzq, size: "10x10" },
-      { position: "bolsillo_der", active: bolsilloDer, size: "10x10" },
-      { position: "diafragma", active: diafragma, size: "23x23" },
+    const dtfMarks: { size: PrintSize; active: boolean }[] = [
+      { size: "10x10", active: bolsilloIzq },
+      { size: "10x10", active: bolsilloDer },
+      { size: "23x23", active: diafragma },
+      { size: logoEspaldaSize, active: logoEspalda },
     ];
 
-    return calculateTeamGarmentQuote({
-      pechoMarks,
-      espaldaLogo: { position: "logo_espalda", active: logoEspalda, size: logoEspaldaSize },
-      nombre,
-      dorsal,
-      mangas: {
-        active: mangasActive,
-        colors: mangasColors,
-        size: mangasSize,
-        multiplier: mangasMultiplier,
-        technique: mangasTechnique,
-      },
-      garmentType,
-      garmentUnitCost,
-      quantity,
-      extraMargin: extraMarginPct / 100,
-    });
+    let markingPrice = 0;
+    for (const mark of dtfMarks) {
+      if (!mark.active) continue;
+      const p = markingUnitPrice("DTF", { size: mark.size, colors: 1 }, quantity);
+      if (p === null) return null;
+      markingPrice += p;
+    }
+    if (mangasActive) {
+      const p = markingUnitPrice(mangasTechnique, { size: mangasSize, colors: mangasColors }, quantity);
+      if (p === null) return null;
+      markingPrice += p * mangasMultiplier;
+    }
+
+    const nombreDorsalSurcharge = (nombre ? CARGO_NOMBRE_EQUIPACION : 0) + (dorsal ? CARGO_DORSAL_EQUIPACION : 0);
+    const garmentPrice = garmentUnitCost * (1 + extraMarginPct / 100);
+    const unitPrice = Math.round((garmentPrice + markingPrice + nombreDorsalSurcharge) * 100) / 100;
+    const subtotal = unitPrice * quantity;
+    const vat = Math.round(subtotal * BASE_COSTS.IVA_porcentaje * 100) / 100;
+    return { unitPrice, nombreDorsalSurcharge, subtotal, vat, total: subtotal + vat };
   }, [
     noMarkActive,
     quantity,
@@ -134,7 +141,6 @@ export default function EquipacionPresupuestoPage() {
     mangasSize,
     mangasMultiplier,
     mangasTechnique,
-    garmentType,
     garmentUnitCost,
     extraMarginPct,
   ]);
@@ -157,7 +163,7 @@ export default function EquipacionPresupuestoPage() {
       .filter(Boolean)
       .join(", ");
     const priceLine = result
-      ? `Precio orientativo: ${money(result.finalUnitPrices.recommended)}/ud · Total ${money(result.order.total)} (IVA incl.)`
+      ? `Precio orientativo: ${money(result.unitPrice)}/ud · Total ${money(result.total)} (IVA incl.)`
       : "";
     return `Presupuesto de equipación configurado en la web:\n- Marcas: ${marks || "ninguna seleccionada"}\n- Prenda: ${garmentType}, cantidad ${quantity}\n- ${priceLine}\n\n`;
   };
@@ -371,10 +377,7 @@ export default function EquipacionPresupuestoPage() {
                 <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
                   <p className="text-xs uppercase tracking-wide text-white/50">Precio por unidad</p>
                   <p className="mt-1 font-display text-3xl font-extrabold text-brand">
-                    {money(result.finalUnitPrices.recommended)}
-                  </p>
-                  <p className="mt-1 text-xs text-white/50">
-                    Rango: {money(result.finalUnitPrices.min)} – {money(result.finalUnitPrices.premium)}
+                    {money(result.unitPrice)}
                   </p>
                 </div>
 
@@ -387,15 +390,15 @@ export default function EquipacionPresupuestoPage() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="text-white/50">Subtotal ({quantity} uds.)</p>
-                    <p className="font-display font-bold">{money(result.order.subtotal)}</p>
+                    <p className="font-display font-bold">{money(result.subtotal)}</p>
                   </div>
                   <div>
                     <p className="text-white/50">IVA (21%)</p>
-                    <p className="font-display font-bold">{money(result.order.vat)}</p>
+                    <p className="font-display font-bold">{money(result.vat)}</p>
                   </div>
                   <div className="col-span-2 border-t border-white/15 pt-3">
                     <p className="text-white/50">Total con IVA</p>
-                    <p className="font-display text-xl font-extrabold">{money(result.order.total)}</p>
+                    <p className="font-display text-xl font-extrabold">{money(result.total)}</p>
                   </div>
                 </div>
               </div>

@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  calculateQuote,
   BASE_COSTS,
   GARMENT_REFERENCE_COST,
   type Technique,
@@ -11,6 +10,7 @@ import {
   type GarmentType,
   type PrintZone,
 } from "@/lib/pricing";
+import { markingUnitPrice } from "@/lib/marking-tariff";
 
 const TECHNIQUES: { value: Technique; label: string }[] = [
   { value: "DTF", label: "DTF (transferencia digital)" },
@@ -132,20 +132,32 @@ export default function PresupuestoPage() {
   // Estimación interna (no se muestra al cliente): esta calculadora siempre
   // deriva a "solicitar presupuesto" — el precio, si se calcula, solo viaja
   // en el resumen que recibe el equipo, para agilizar la respuesta.
+  //
+  // Marcaje: tarifa de mercado (marking-tariff.ts), un precio ya final por
+  // zona activa — no lleva margen ni qFactor propios, eso solo se sigue
+  // aplicando a la prenda (coste libre, para regalos fuera de catálogo).
+  // null = alguna zona no tiene precio online todavía (Serigrafía <10 uds).
   const result = useMemo(() => {
     if (noZoneActive || quantity <= 0) return null;
-    return calculateQuote({
-      technique,
-      pecho,
-      espalda,
-      mangas: { ...mangas, multiplier: mangasMultiplier },
-      garmentType,
-      garmentUnitCost,
-      quantity,
-      extraMargin: extraMarginPct / 100,
-      personalizedName,
-    });
-  }, [technique, pecho, espalda, mangas, mangasMultiplier, garmentType, garmentUnitCost, quantity, extraMarginPct, personalizedName, noZoneActive]);
+    const zones = [
+      { active: pecho.active, size: pecho.size, colors: pecho.colors, count: 1 },
+      { active: espalda.active, size: espalda.size, colors: espalda.colors, count: 1 },
+      { active: mangas.active, size: mangas.size, colors: mangas.colors, count: mangasMultiplier },
+    ];
+    let markingPrice = 0;
+    for (const z of zones) {
+      if (!z.active) continue;
+      const p = markingUnitPrice(technique, z, quantity);
+      if (p === null) return null;
+      markingPrice += p * z.count;
+    }
+    const garmentPrice = garmentUnitCost * (1 + extraMarginPct / 100);
+    const nameSurcharge = personalizedName ? BASE_COSTS.Cargo_nombre : 0;
+    const unitPrice = Math.round((garmentPrice + markingPrice + nameSurcharge) * 100) / 100;
+    const subtotal = unitPrice * quantity;
+    const vat = Math.round(subtotal * BASE_COSTS.IVA_porcentaje * 100) / 100;
+    return { unitPrice, subtotal, vat, total: subtotal + vat };
+  }, [technique, pecho, espalda, mangas, mangasMultiplier, garmentUnitCost, quantity, extraMarginPct, personalizedName, noZoneActive]);
 
   function handleGarmentTypeChange(type: GarmentType) {
     setGarmentType(type);
@@ -161,7 +173,7 @@ export default function PresupuestoPage() {
       .filter(Boolean)
       .join(", ");
     const priceLine = result
-      ? `Precio orientativo: ${money(result.finalUnitPrices.recommended)}/ud · Total ${money(result.order.total)} (IVA incl.)`
+      ? `Precio orientativo: ${money(result.unitPrice)}/ud · Total ${money(result.total)} (IVA incl.)`
       : "";
     return `Presupuesto configurado en la web:\n- Técnica: ${technique}\n- Zonas: ${zones || "ninguna seleccionada"}\n- Prenda: ${garmentType}, cantidad ${quantity}\n- ${priceLine}\n\n`;
   };
