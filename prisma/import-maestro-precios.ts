@@ -7,15 +7,21 @@
 // y factusol-import\Codigos_FACTUSOL.csv.
 import fs from "node:fs";
 import Papa from "papaparse";
-import { PrismaClient } from "../src/generated/prisma";
+import { PrismaClient, Prisma } from "../src/generated/prisma";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
+const VARIANT_BATCH_SIZE = 500; // ~250 round trips instead of 122k — public proxy latency makes one-by-one impractical
+
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const MAESTRO_DIR = "E:\\onion\\26\\finanzas\\maestro-precios";
+const MAESTRO_ROOT = "E:\\onion\\26\\finanzas\\maestro-precios";
+// --dir=csv_v1.4 to point at a different export (e.g. a pricing-rule
+// revision) without touching the default "csv" folder.
+const dirArg = process.argv.find((a) => a.startsWith("--dir="));
+const MAESTRO_DIR = `${MAESTRO_ROOT}\\${dirArg ? dirArg.slice("--dir=".length) : "csv"}`;
 const APPLY = process.argv.includes("--apply");
 
 type ModeloRow = {
@@ -69,12 +75,22 @@ function round(n: number, decimals: number): number {
   return Math.round(n * f) / f;
 }
 
+function round2OrNull(n: number | null): number | null {
+  return n === null ? null : round(n, 2);
+}
+
+function round4OrNull(n: number | null): number | null {
+  return n === null ? null : round(n, 4);
+}
+
 async function main() {
   console.log(APPLY ? "Modo: APLICAR cambios de verdad." : "Modo: DRY-RUN (nada se escribe, usa --apply para aplicar).");
 
-  const modelos = parseCsv<ModeloRow>(`${MAESTRO_DIR}\\csv\\Modelos.csv`);
-  const variantes = parseCsv<VarianteRow>(`${MAESTRO_DIR}\\csv\\Variantes.csv`);
-  const codigosLargos = parseCsv<CodigoLargoRow>(`${MAESTRO_DIR}\\csv\\Codigos_largos.csv`);
+  const modelos = parseCsv<ModeloRow>(`${MAESTRO_DIR}\\Modelos.csv`);
+  const variantes = parseCsv<VarianteRow>(`${MAESTRO_DIR}\\Variantes.csv`);
+  // Codigos_largos.csv only exists in the base "csv" export — v1.4 only
+  // touches PVP_pack/PVP_caja, no need to duplicate it there.
+  const codigosLargos = parseCsv<CodigoLargoRow>(`${MAESTRO_ROOT}\\csv\\Codigos_largos.csv`);
   console.log(`Leídos: ${modelos.length} modelos, ${variantes.length} variantes, ${codigosLargos.length} códigos largos.`);
 
   const factusolByKey = new Map(
@@ -170,38 +186,60 @@ async function main() {
   let variantesNotFound = 0;
   const variantNotFoundExamples: string[] = [];
 
+  type VariantUpdate = {
+    sku: string;
+    pricePack: number | null;
+    priceBox: number | null;
+    costUnit: number | null;
+    costPack: number | null;
+    costBox: number | null;
+  };
+  const variantBatch: VariantUpdate[] = [];
+
+  async function flushVariantBatch() {
+    if (variantBatch.length === 0) return;
+    const values = variantBatch.map(
+      (r) =>
+        Prisma.sql`(${r.sku}::text, ${r.pricePack}::numeric, ${r.priceBox}::numeric, ${r.costUnit}::numeric, ${r.costPack}::numeric, ${r.costBox}::numeric)`
+    );
+    await prisma.$executeRaw`
+      UPDATE product_variants AS pv
+      SET "pricePack" = v.price_pack, "priceBox" = v.price_box, "costUnit" = v.cost_unit, "costPack" = v.cost_pack, "costBox" = v.cost_box
+      FROM (VALUES ${Prisma.join(values)}) AS v(sku, price_pack, price_box, cost_unit, cost_pack, cost_box)
+      WHERE pv."supplierModelCode" = v.sku
+    `;
+    variantesUpdated += variantBatch.length;
+    variantBatch.length = 0;
+  }
+
+  let variantRowsProcessed = 0;
   for (const row of variantes) {
-    const pricePack = toNumOrNull(row.PVP_pack);
-    const priceBox = toNumOrNull(row.PVP_caja);
-    const costUnit = toNumOrNull(row.Coste_ud);
-    const costPack = toNumOrNull(row.Coste_pack);
-    const costBox = toNumOrNull(row.Coste_caja);
+    if (!existingVariantCodes.has(row.SKU_proveedor)) {
+      variantesNotFound++;
+      if (variantNotFoundExamples.length < 5) variantNotFoundExamples.push(row.SKU_proveedor);
+      continue;
+    }
 
     if (APPLY) {
-      const result = await prisma.productVariant.updateMany({
-        where: { supplierModelCode: row.SKU_proveedor },
-        data: {
-          pricePack: pricePack !== null ? round(pricePack, 2) : null,
-          priceBox: priceBox !== null ? round(priceBox, 2) : null,
-          costUnit: costUnit !== null ? round(costUnit, 4) : null,
-          costPack: costPack !== null ? round(costPack, 4) : null,
-          costBox: costBox !== null ? round(costBox, 4) : null,
-        },
+      variantBatch.push({
+        sku: row.SKU_proveedor,
+        pricePack: round2OrNull(toNumOrNull(row.PVP_pack)),
+        priceBox: round2OrNull(toNumOrNull(row.PVP_caja)),
+        costUnit: round4OrNull(toNumOrNull(row.Coste_ud)),
+        costPack: round4OrNull(toNumOrNull(row.Coste_pack)),
+        costBox: round4OrNull(toNumOrNull(row.Coste_caja)),
       });
-      if (result.count > 0) variantesUpdated += result.count;
-      else {
-        variantesNotFound++;
-        if (variantNotFoundExamples.length < 5) variantNotFoundExamples.push(row.SKU_proveedor);
-      }
+      if (variantBatch.length >= VARIANT_BATCH_SIZE) await flushVariantBatch();
     } else {
-      if (existingVariantCodes.has(row.SKU_proveedor)) {
-        variantesUpdated++;
-      } else {
-        variantesNotFound++;
-        if (variantNotFoundExamples.length < 5) variantNotFoundExamples.push(row.SKU_proveedor);
-      }
+      variantesUpdated++;
+    }
+
+    variantRowsProcessed++;
+    if (APPLY && variantRowsProcessed % 10000 === 0) {
+      console.log(`  ...${variantRowsProcessed}/${variantes.length} variantes procesadas`);
     }
   }
+  if (APPLY) await flushVariantBatch();
 
   console.log(`\nVariantes: ${variantesUpdated} encontradas/actualizadas, ${variantesNotFound} no encontradas.`);
   if (variantNotFoundExamples.length) console.log("Ejemplos no encontrados:", variantNotFoundExamples);

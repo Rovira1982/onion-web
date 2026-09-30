@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "./db";
+import { requireAdmin } from "./auth";
 
 export type OrderDetail = {
   id: string;
@@ -37,6 +38,7 @@ export type OrderDetail = {
 export type OrderSummary = {
   id: string;
   status: string;
+  paymentStatus: string;
   total: number;
   invoiceName: string;
   createdAt: Date;
@@ -44,10 +46,10 @@ export type OrderSummary = {
   discountCode: string | null;
 };
 
-// Minimal listing for the (not-yet-built) admin panel — just enough to find
-// an order and trigger its FactuSol export. No auth guard yet: this route
-// must not go to production before the admin area is gated.
+// Minimal listing for the admin panel — just enough to find an order,
+// mark it paid, and trigger its FactuSol export.
 export async function listOrders(): Promise<OrderSummary[]> {
+  await requireAdmin();
   const orders = await prisma.order.findMany({
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { lines: true } }, discountCode: { select: { code: true } } },
@@ -55,6 +57,7 @@ export async function listOrders(): Promise<OrderSummary[]> {
   return orders.map((o) => ({
     id: o.id,
     status: o.status,
+    paymentStatus: o.paymentStatus,
     total: parseFloat(o.total.toString()),
     invoiceName: o.invoiceName,
     createdAt: o.createdAt,
@@ -64,6 +67,7 @@ export async function listOrders(): Promise<OrderSummary[]> {
 }
 
 export async function getOrderById(id: string): Promise<OrderDetail | null> {
+  await requireAdmin();
   const order = await prisma.order.findUnique({
     where: { id },
     include: {

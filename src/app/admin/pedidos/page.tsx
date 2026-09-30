@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listOrders } from "@/lib/orders";
 
 function money(n: number) {
@@ -22,6 +23,7 @@ export default async function AdminPedidosPage() {
               <th className="py-2 pr-4">Fecha</th>
               <th className="py-2 pr-4">Cliente</th>
               <th className="py-2 pr-4">Estado</th>
+              <th className="py-2 pr-4">Pago</th>
               <th className="py-2 pr-4">Líneas</th>
               <th className="py-2 pr-4">Código</th>
               <th className="py-2 pr-4">Total</th>
@@ -32,8 +34,19 @@ export default async function AdminPedidosPage() {
             {orders.map((o) => (
               <tr key={o.id} className="border-b border-border">
                 <td className="py-2 pr-4">{o.createdAt.toLocaleDateString("es-ES")}</td>
-                <td className="py-2 pr-4">{o.invoiceName}</td>
+                <td className="py-2 pr-4">
+                  <Link href={`/admin/pedidos/${o.id}`} className="cursor-pointer font-semibold text-brand hover:text-brand-dark">
+                    {o.invoiceName}
+                  </Link>
+                </td>
                 <td className="py-2 pr-4">{o.status}</td>
+                <td className="py-2 pr-4">
+                  {o.paymentStatus === "pagado" ? (
+                    <span className="font-semibold text-green-700">Pagado</span>
+                  ) : (
+                    o.paymentStatus
+                  )}
+                </td>
                 <td className="py-2 pr-4">{o.lineCount}</td>
                 <td className="py-2 pr-4">{o.discountCode ?? "—"}</td>
                 <td className="py-2 pr-4">{money(o.total)}</td>
