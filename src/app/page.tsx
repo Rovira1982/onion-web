@@ -90,7 +90,10 @@ export default async function Home() {
               </button>
             </form>
 
-            <div className="mt-10 grid gap-6 sm:grid-cols-3">
+            {/* Se repiten en la sección "Garantía" más abajo — ocultos en
+                móvil para no alargar el hero antes de llegar al outlet y
+                los productos. */}
+            <div className="mt-10 hidden gap-6 sm:grid sm:grid-cols-3">
               {TRUST_BADGES.map((b) => (
                 <div key={b.title}>
                   <p className="font-display text-sm font-bold text-ink">{b.title}</p>
@@ -123,27 +126,11 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Ocasiones — orden y peso visual fijados por el negocio, no alfabético */}
-      <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
-        <h2 className="font-display text-sm font-bold uppercase tracking-wide text-ink-soft">
-          ¿Para qué lo necesitas?
-        </h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-4">
-          {occasions.map((o) => (
-            <Link
-              key={o.slug}
-              href={`/catalogo?ocasion=${o.slug}`}
-              className={`flex items-center justify-center rounded-2xl border border-border bg-white px-4 text-center font-display font-bold text-ink transition-colors hover:border-brand hover:text-brand ${OCCASION_CARD_STYLE[o.weight]}`}
-            >
-              {o.name}
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* Outlet — palanca de conversión, productos de saldo/liquidación reales */}
+      {/* Outlet — palanca de conversión, casi lo primero tras el hero (decisión
+          del dueño: es lo que más engancha, y en móvil hay que llegar antes
+          a algo "real" que el listado de ocasiones). */}
       {outletCount > 0 && (
-        <section className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
           <Link
             href="/catalogo?outlet=1"
             className="flex items-center justify-between gap-4 rounded-2xl bg-ink px-6 py-5 text-white transition-colors hover:bg-ink/90 sm:px-8"
@@ -162,6 +149,57 @@ export default async function Home() {
           </Link>
         </section>
       )}
+
+      {/* Destacados — sube justo después del outlet para que en móvil se
+          vean productos reales (camisetas, etc.) sin tener que bajar por
+          ocasiones/promoción/categorías primero. */}
+      <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
+        <div className="flex items-end justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-ink sm:text-3xl">
+              Descubre nuestro catálogo
+            </h2>
+            <p className="mt-2 max-w-2xl text-ink-soft">
+              Una muestra de nuestras categorías con más variedad de artículos personalizables.
+            </p>
+          </div>
+          <Link
+            href="/catalogo"
+            className="hidden shrink-0 font-display text-sm font-bold text-brand hover:text-brand-dark sm:block"
+          >
+            Ver catálogo completo →
+          </Link>
+        </div>
+        <div className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+          {bestsellers.map((p) => (
+            <ProductCard key={p.slug} product={p} />
+          ))}
+        </div>
+        <Link
+          href="/catalogo"
+          className="mt-8 block text-center font-display text-sm font-bold text-brand hover:text-brand-dark sm:hidden"
+        >
+          Ver catálogo completo →
+        </Link>
+      </section>
+
+      {/* Ocasiones — orden y peso visual fijados por el negocio, no alfabético */}
+      <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
+        <h2 className="font-display text-sm font-bold uppercase tracking-wide text-ink-soft">
+          ¿Para qué lo necesitas?
+        </h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          {occasions.map((o) => (
+            <Link
+              key={o.slug}
+              href={`/catalogo?ocasion=${o.slug}`}
+              className={`flex items-center justify-center rounded-2xl border border-border bg-white px-4 text-center font-display font-bold text-ink transition-colors hover:border-brand hover:text-brand ${OCCASION_CARD_STYLE[o.weight]}`}
+            >
+              {o.name}
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {/* Promoción de temporada */}
       {promotion && (
@@ -266,37 +304,6 @@ export default async function Home() {
             </Link>
           ))}
         </div>
-      </section>
-
-      {/* Destacados */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="flex items-end justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-ink sm:text-3xl">
-              Descubre nuestro catálogo
-            </h2>
-            <p className="mt-2 max-w-2xl text-ink-soft">
-              Una muestra de nuestras categorías con más variedad de artículos personalizables.
-            </p>
-          </div>
-          <Link
-            href="/catalogo"
-            className="hidden shrink-0 font-display text-sm font-bold text-brand hover:text-brand-dark sm:block"
-          >
-            Ver catálogo completo →
-          </Link>
-        </div>
-        <div className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
-          {bestsellers.map((p) => (
-            <ProductCard key={p.slug} product={p} />
-          ))}
-        </div>
-        <Link
-          href="/catalogo"
-          className="mt-8 block text-center font-display text-sm font-bold text-brand hover:text-brand-dark sm:hidden"
-        >
-          Ver catálogo completo →
-        </Link>
       </section>
 
       {/* Garantía */}
