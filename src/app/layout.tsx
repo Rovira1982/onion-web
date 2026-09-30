@@ -24,6 +24,13 @@ const rubik = Rubik({
 // correctly in production.
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+// Footer reads categories from the DB on every page. Force every route to
+// render per-request instead of prerendering at build time — the build
+// container has no route to the database (Railway's private networking is
+// runtime-only), and static pages would show stale stock/prices anyway
+// between syncs.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {

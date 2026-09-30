@@ -3,6 +3,11 @@ import { getAllProductSlugsForSitemap, getCategories } from "@/lib/products";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+// Special Next.js files (sitemap/robots) don't inherit the layout's
+// `dynamic` export — needs its own, or the build tries to generate it
+// statically and fails without build-time DB access.
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [categories, products] = await Promise.all([getCategories(), getAllProductSlugsForSitemap()]);
 
