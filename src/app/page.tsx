@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import ProductCard from "@/components/ProductCard";
-import { getTopCategories, getFeaturedProducts, getOccasions } from "@/lib/products";
+import { getTopCategories, getFeaturedProducts, getOccasions, getOutletCount } from "@/lib/products";
 import { getActivePromotion } from "@/lib/promotions";
 
 const OCCASION_CARD_STYLE = {
@@ -48,6 +48,7 @@ export default async function Home() {
   const bestsellers = await getFeaturedProducts(8);
   const promotion = await getActivePromotion();
   const occasions = await getOccasions();
+  const outletCount = await getOutletCount();
 
   return (
     <>
@@ -139,6 +140,28 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      {/* Outlet — palanca de conversión, productos de saldo/liquidación reales */}
+      {outletCount > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+          <Link
+            href="/catalogo?outlet=1"
+            className="flex items-center justify-between gap-4 rounded-2xl bg-ink px-6 py-5 text-white transition-colors hover:bg-ink/90 sm:px-8"
+          >
+            <div>
+              <span className="font-display text-xs font-bold uppercase tracking-wide text-white/70">
+                Outlet
+              </span>
+              <p className="mt-1 font-display text-lg font-bold sm:text-xl">
+                {outletCount} productos con precio rebajado
+              </p>
+            </div>
+            <span className="shrink-0 font-display text-sm font-bold underline underline-offset-4">
+              Ver ofertas →
+            </span>
+          </Link>
+        </section>
+      )}
 
       {/* Promoción de temporada */}
       {promotion && (

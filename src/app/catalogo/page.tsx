@@ -8,13 +8,17 @@ export const metadata = {
     "Miles de regalos de empresa y artículos publicitarios personalizables con tu logo: ropa, escritura, bolsas, tecnología y mucho más.",
 };
 
-type SearchParams = { categoria?: string; ocasion?: string; marca?: string; q?: string; page?: string };
+type SearchParams = { categoria?: string; ocasion?: string; marca?: string; outlet?: string; q?: string; page?: string };
 
-function buildPageHref(base: { categoria?: string; ocasion?: string; marca?: string; q?: string }, page: number) {
+function buildPageHref(
+  base: { categoria?: string; ocasion?: string; marca?: string; outlet?: string; q?: string },
+  page: number
+) {
   const params = new URLSearchParams();
   if (base.categoria) params.set("categoria", base.categoria);
   if (base.ocasion) params.set("ocasion", base.ocasion);
   if (base.marca) params.set("marca", base.marca);
+  if (base.outlet) params.set("outlet", base.outlet);
   if (base.q) params.set("q", base.q);
   if (page > 1) params.set("page", String(page));
   const qs = params.toString();
@@ -26,15 +30,17 @@ export default async function CatalogoPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { categoria, ocasion, marca, q, page } = await searchParams;
+  const { categoria, ocasion, marca, outlet, q, page } = await searchParams;
   const categories = await getCategories();
   const brands = await getBrands();
   const occasions = ocasion ? await getOccasions() : [];
   const activeBrand = brands.find((b) => b.slug === marca);
+  const isOutlet = outlet === "1";
   const { products, total, page: currentPage, totalPages } = await searchProducts({
     category: categoria,
     occasion: ocasion,
     brand: activeBrand?.name,
+    outlet: isOutlet,
     q,
     page: page ? parseInt(page, 10) : 1,
   });
@@ -122,7 +128,9 @@ export default async function CatalogoPage({
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-ink">
-            {activeOccasion?.name ?? activeCategory?.name ?? (activeBrand ? `Marca: ${activeBrand.name}` : "Catálogo completo")}
+            {activeOccasion?.name ??
+              activeCategory?.name ??
+              (activeBrand ? `Marca: ${activeBrand.name}` : isOutlet ? "Outlet" : "Catálogo completo")}
           </h1>
           <p className="mt-1 text-ink-soft">
             {total} {total === 1 ? "producto encontrado" : "productos encontrados"}
@@ -133,6 +141,7 @@ export default async function CatalogoPage({
           {categoria && <input type="hidden" name="categoria" value={categoria} />}
           {ocasion && <input type="hidden" name="ocasion" value={ocasion} />}
           {marca && <input type="hidden" name="marca" value={marca} />}
+          {isOutlet && <input type="hidden" name="outlet" value="1" />}
           <label htmlFor="q" className="sr-only">
             Buscar productos
           </label>
@@ -211,7 +220,7 @@ export default async function CatalogoPage({
                   aria-label="Paginación"
                 >
                   <Link
-                    href={buildPageHref({ categoria, ocasion, marca, q }, Math.max(1, currentPage - 1))}
+                    href={buildPageHref({ categoria, ocasion, marca, outlet, q }, Math.max(1, currentPage - 1))}
                     aria-disabled={currentPage === 1}
                     className={`rounded-lg border border-border px-3 py-2 text-sm font-semibold ${
                       currentPage === 1
@@ -225,7 +234,7 @@ export default async function CatalogoPage({
                     Página {currentPage} de {totalPages}
                   </span>
                   <Link
-                    href={buildPageHref({ categoria, ocasion, marca, q }, Math.min(totalPages, currentPage + 1))}
+                    href={buildPageHref({ categoria, ocasion, marca, outlet, q }, Math.min(totalPages, currentPage + 1))}
                     aria-disabled={currentPage === totalPages}
                     className={`rounded-lg border border-border px-3 py-2 text-sm font-semibold ${
                       currentPage === totalPages

@@ -177,21 +177,50 @@ export async function getOccasions() {
   }));
 }
 
-export async function searchProducts(opts: { category?: string; occasion?: string; brand?: string; q?: string; page?: number }) {
+// Outlet isn't a single supplier category — Cifra tags some products with
+// their own "OUTLET" category and others with a plain "Outlet" subcategory
+// under a different parent, so both need matching to catch the real outlet
+// inventory (verified: 14 + 55 products respectively).
+export async function getOutletCount() {
+  return prisma.product.count({
+    where: {
+      stock: { gt: 0 },
+      OR: [{ category: { slug: "outlet" } }, { subcategory: { contains: "outlet", mode: "insensitive" } }],
+    },
+  });
+}
+
+export async function searchProducts(opts: {
+  category?: string;
+  occasion?: string;
+  brand?: string;
+  outlet?: boolean;
+  q?: string;
+  page?: number;
+}) {
+  // outlet and q both need their own OR — combined via AND so neither
+  // overwrites the other when both filters are active at once.
   const where = {
     stock: { gt: 0 },
     ...(opts.category ? { category: { slug: opts.category } } : {}),
     ...(opts.occasion ? { occasions: { some: { occasion: { slug: opts.occasion } } } } : {}),
     ...(opts.brand ? { brand: opts.brand } : {}),
-    ...(opts.q
-      ? {
-          OR: [
-            { name: { contains: opts.q, mode: "insensitive" as const } },
-            { category: { name: { contains: opts.q, mode: "insensitive" as const } } },
-            { subcategory: { contains: opts.q, mode: "insensitive" as const } },
-          ],
-        }
-      : {}),
+    AND: [
+      ...(opts.outlet
+        ? [{ OR: [{ category: { slug: "outlet" } }, { subcategory: { contains: "outlet", mode: "insensitive" as const } }] }]
+        : []),
+      ...(opts.q
+        ? [
+            {
+              OR: [
+                { name: { contains: opts.q, mode: "insensitive" as const } },
+                { category: { name: { contains: opts.q, mode: "insensitive" as const } } },
+                { subcategory: { contains: opts.q, mode: "insensitive" as const } },
+              ],
+            },
+          ]
+        : []),
+    ],
   };
 
   const total = await prisma.product.count({ where });

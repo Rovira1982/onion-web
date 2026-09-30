@@ -82,6 +82,14 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
     const variant = variantById.get(item.productVariantId);
     if (!variant) return { error: "Uno de los productos del carrito ya no está disponible." };
 
+    // Vinilo has no online price — the product page routes it to "pide
+    // presupuesto" instead of "añadir al carrito", but that's a UI-only
+    // gate, so the server must refuse it too in case a line reaches here
+    // some other way (direct call, stale client, etc).
+    if (item.marking && item.marking.technique === "Vinilo") {
+      return { error: "La técnica Vinilo requiere presupuesto a medida — no se puede pedir online." };
+    }
+
     const quantity = Math.max(1, Math.floor(item.quantity));
     // Garment price and margin always come from the server (DB variant price,
     // fixed business margin) — the browser only decides technique, zones and
