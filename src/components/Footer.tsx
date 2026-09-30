@@ -3,6 +3,7 @@ import Image from "next/image";
 import { getTopCategories } from "@/lib/products";
 import { categoryIcon } from "@/lib/category-icon";
 import CookieSettingsButton from "@/components/CookieSettingsButton";
+import FooterVatNote from "@/components/FooterVatNote";
 
 export default async function Footer() {
   const categories = await getTopCategories(30);
@@ -98,7 +99,7 @@ export default async function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-white/50 sm:flex-row">
           <p>© {new Date().getFullYear()} Onion and Back. Todos los derechos reservados.</p>
-          <p>Precios sin IVA. La personalización se cobra aparte, según técnica y cantidad.</p>
+          <FooterVatNote />
         </div>
         <ul className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-white/50 sm:justify-start">
           <li>

@@ -28,7 +28,12 @@ const PACKS: Pack[] = [
     slug: "pack-10-basico",
     title: "Pack 10 camisetas — logo pecho y espalda",
     description: "Logo pequeño (10×10 cm) en pecho y espalda, técnica DTF.",
-    bullets: ["Mínimo 10 unidades", "Diseño de tu logo incluido", "Entrega en 7 días", "Todas las tallas y colores del modelo"],
+    bullets: [
+      "Mínimo 10 unidades",
+      "Diseño de tu logo incluido",
+      "Entrega en 7 días desde que aprobamos el diseño contigo",
+      "Todas las tallas y colores del modelo",
+    ],
     input: {
       technique: "DTF",
       pecho: { active: true, colors: 1, size: "10x10" },
@@ -45,7 +50,12 @@ const PACKS: Pack[] = [
     slug: "pack-10-grande",
     title: "Pack 10 camisetas — logo grande",
     description: "Logo grande en pecho (23×23 cm) y espalda (30×30 cm), técnica DTF.",
-    bullets: ["Mínimo 10 unidades", "Diseño de tu logo incluido", "Entrega en 7 días", "Todas las tallas y colores del modelo"],
+    bullets: [
+      "Mínimo 10 unidades",
+      "Diseño de tu logo incluido",
+      "Entrega en 7 días desde que aprobamos el diseño contigo",
+      "Todas las tallas y colores del modelo",
+    ],
     input: {
       technique: "DTF",
       pecho: { active: true, colors: 1, size: "23x23" },
