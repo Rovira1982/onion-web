@@ -76,7 +76,19 @@ function getPricelist(params: { brand: string }) {
   const form = new FormData();
   form.set("brand", params.brand);
   form.set("includeoutlet", "0");
-  return gfPost(`/api/v1/item/pricelist`, form) as Promise<{ pricelist: { productcode: string; price_unit: number }[] }>;
+  return gfPost(`/api/v1/item/pricelist`, form) as Promise<{
+    pricelist: { productcode: string; type: string; price_unit: number | null; price_1: number | null }[];
+  }>;
+}
+
+// Roly's pricelist returns type "fixed" with price_unit populated. Stamina's
+// returns type "range" instead — price_unit is empty and the real price
+// lives in price_1..4 (quantity tiers, limit_1..3). price_1 is the <500-unit
+// tier — closest equivalent to a single "unit" price until the business
+// decides how the web should pick a tier (pending, see maestro de precios).
+function resolvePrice(p: { type: string; price_unit: number | null; price_1: number | null }): number {
+  if (p.type === "range") return Number(p.price_1) || 0;
+  return Number(p.price_unit) || 0;
 }
 
 function getUserStock(params: { brand: string; whscode: string }) {
@@ -104,7 +116,7 @@ async function importBrand(opts: { brand: string; supplierName: string; topCateg
     getUserStock({ brand: opts.brand, whscode: WAREHOUSE }),
   ]);
 
-  const priceBySku = new Map(priceRes.pricelist.map((p) => [p.productcode, Number(p.price_unit) || 0]));
+  const priceBySku = new Map(priceRes.pricelist.map((p) => [p.productcode, resolvePrice(p)]));
   const stockBySku = new Map((stockRes.stock ?? []).map((s) => [s.sku, Number(s.onhand) || 0]));
 
   console.log(
