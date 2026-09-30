@@ -106,12 +106,20 @@ export const getProductBySlug = cache(async (slug: string): Promise<ProductDetai
   // size; add a stored+indexed slug column if this ever needs to scale up.
   const products = await prisma.product.findMany({
     where: { stock: { gt: 0 } },
-    include: { ...productInclude, variants: { orderBy: { stock: "desc" } } },
+    include: {
+      category: { select: { name: true } },
+      // La ficha de producto sí enseña todas las fotos (galería) — a
+      // diferencia de productInclude (listados/tarjetas), que se queda con
+      // la primera nada más por rendimiento.
+      images: { orderBy: { position: "asc" } },
+      variants: { orderBy: { stock: "desc" } },
+    },
   });
   const match = products.find((p) => slugify(`${p.name}-${p.supplierSku}`) === slug);
   if (!match) return null;
   return {
     ...toProduct(match),
+    images: match.images.map((img) => img.url),
     variants: match.variants.map((v) => ({
       id: v.id,
       size: v.size ?? "",

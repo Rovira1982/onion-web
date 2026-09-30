@@ -33,7 +33,12 @@ export type ProductVariant = {
   supplierModelCode: string;
 };
 
-export type ProductDetail = Product & { variants: ProductVariant[] };
+export type ProductDetail = Product & {
+  variants: ProductVariant[];
+  // Todas las fotos del producto (la ficha muestra galería) — `image` sigue
+  // siendo solo la primera, para los sitios que ya la usan (tarjetas, OG).
+  images: string[];
+};
 
 export function slugify(input: string) {
   return input
@@ -64,6 +69,26 @@ const TECHNIQUE_LABELS: Record<string, string> = {
   "SE SIRVE SIN MARCAJE": "Sin personalización disponible",
   "SE SIRVE SIN MARCAR": "Sin personalización disponible",
 };
+
+// Subconjunto de códigos de arriba que además sabemos mapear a una de las
+// 4 técnicas que calcula el presupuestador (src/lib/pricing.ts) — no todo
+// lo que el proveedor marca como "personalizable" tiene precio online
+// (bordado, láser, etc. no están soportados hoy), así que solo se ofrece
+// marcaje en la ficha cuando el código es uno de estos, nunca se adivina.
+const ONLINE_TECHNIQUE_CODES: Record<string, "DTF" | "Serigrafia" | "Vinilo" | "Sublimacion"> = {
+  DTF: "DTF",
+  SUB1: "Sublimacion",
+  SUB2: "Sublimacion",
+  SUBP: "Sublimacion",
+  "VINILO DIGITAL/CORTE": "Vinilo",
+};
+
+export function parseOnlineTechniques(raw: string): ("DTF" | "Serigrafia" | "Vinilo" | "Sublimacion")[] {
+  if (!raw) return [];
+  const parts = raw.split(",").map((p) => p.trim());
+  const techniques = parts.map((p) => ONLINE_TECHNIQUE_CODES[p]).filter((t): t is "DTF" | "Serigrafia" | "Vinilo" | "Sublimacion" => Boolean(t));
+  return Array.from(new Set(techniques));
+}
 
 export function describeEngravingTechnique(raw: string): string {
   if (!raw) return "";

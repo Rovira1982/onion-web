@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { describeEngravingTechnique, describeMaterial, type ProductDetail } from "@/lib/product-format";
-import AddToCartForm from "@/components/AddToCartForm";
+import { describeEngravingTechnique, describeMaterial, parseOnlineTechniques, type ProductDetail } from "@/lib/product-format";
+import AddToCartForm, { isGarmentCategory } from "@/components/AddToCartForm";
 import PackAddToCartForm from "@/components/PackAddToCartForm";
+import SimpleMarkingAddToCartForm from "@/components/SimpleMarkingAddToCartForm";
 import { type PackDefinition } from "@/lib/packs";
 
 function money(n: number) {
@@ -122,18 +123,59 @@ export default function ProductDetailClient({
         />
       )}
 
-      {variantsForColor.length > 0 && !pack && (
-        <AddToCartForm
-          productSlug={product.slug}
-          productName={product.name}
-          image={product.image}
-          variants={variantsForColor}
-          unitsPerPack={product.unitsPerPack}
-          unitsPerCase={product.unitsPerCase}
-          incompleteData={product.incompleteData}
-          category={product.subcategory || product.category}
-        />
-      )}
+      {variantsForColor.length > 0 &&
+        !pack &&
+        (() => {
+          const category = product.subcategory || product.category;
+          const onlineTechniques = parseOnlineTechniques(product.engravingTechnique);
+          // Prendas de torso: configurador completo con maniquí (ver
+          // AddToCartForm). Todo lo demás cuyo proveedor SÍ confirme una
+          // técnica que sabemos calcular (bolsas, tazas...): versión sin
+          // maniquí (petición del dueño, 2026-09-30 — antes esto siempre
+          // mandaba a "pide presupuesto por email" aunque el proveedor
+          // tuviera marcaje disponible). Sin ninguna de las dos: se queda
+          // igual que antes (solo stock + enlace de presupuesto).
+          if (isGarmentCategory(category)) {
+            return (
+              <AddToCartForm
+                productSlug={product.slug}
+                productName={product.name}
+                image={product.image}
+                variants={variantsForColor}
+                unitsPerPack={product.unitsPerPack}
+                unitsPerCase={product.unitsPerCase}
+                incompleteData={product.incompleteData}
+                category={category}
+              />
+            );
+          }
+          if (onlineTechniques.length > 0) {
+            return (
+              <SimpleMarkingAddToCartForm
+                productSlug={product.slug}
+                productName={product.name}
+                image={product.image}
+                variants={variantsForColor}
+                unitsPerPack={product.unitsPerPack}
+                unitsPerCase={product.unitsPerCase}
+                incompleteData={product.incompleteData}
+                availableTechniques={onlineTechniques}
+              />
+            );
+          }
+          return (
+            <AddToCartForm
+              productSlug={product.slug}
+              productName={product.name}
+              image={product.image}
+              variants={variantsForColor}
+              unitsPerPack={product.unitsPerPack}
+              unitsPerCase={product.unitsPerCase}
+              incompleteData={product.incompleteData}
+              category={category}
+            />
+          );
+        })()}
 
       <a
         href={`https://wa.me/34616114095?text=${encodeURIComponent(`Hola! Me interesa este producto: ${product.name}`)}`}
@@ -162,18 +204,44 @@ export default function ProductDetailClient({
   );
 }
 
-export function ProductImageBox({ src, alt }: { src: string; alt: string }) {
+export function ProductImageBox({ images, alt }: { images: string[]; alt: string }) {
+  const [selected, setSelected] = useState(0);
+  const src = images[selected] ?? images[0] ?? "";
+
   return (
-    <div className="flex aspect-square items-center justify-center overflow-hidden rounded-3xl border border-border bg-muted">
-      <Image
-        src={src}
-        alt={alt}
-        width={600}
-        height={600}
-        unoptimized
-        className="h-full w-full object-contain p-8"
-        priority
-      />
+    <div>
+      <div className="flex aspect-square items-center justify-center overflow-hidden rounded-3xl border border-border bg-muted">
+        <Image
+          src={src}
+          alt={alt}
+          width={600}
+          height={600}
+          unoptimized
+          className="h-full w-full object-contain p-8"
+          priority
+        />
+      </div>
+      {/* Varias fotos por producto (Cifra/Makito suelen traer varias
+          ángulos/colores) — antes solo se enseñaba la primera (petición
+          del dueño, 2026-09-30). */}
+      {images.length > 1 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {images.map((img, i) => (
+            <button
+              key={img + i}
+              type="button"
+              onClick={() => setSelected(i)}
+              aria-pressed={selected === i}
+              aria-label={`Foto ${i + 1} de ${alt}`}
+              className={`h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border bg-white transition-colors ${
+                selected === i ? "border-brand" : "border-border hover:border-brand"
+              }`}
+            >
+              <Image src={img} alt="" width={64} height={64} unoptimized className="h-full w-full object-contain p-1" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

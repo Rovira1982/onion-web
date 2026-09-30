@@ -243,7 +243,7 @@ const GARMENT_KEYWORDS = [
   "top",
 ];
 
-function isGarmentCategory(category: string): boolean {
+export function isGarmentCategory(category: string): boolean {
   const lower = category.toLowerCase();
   return GARMENT_KEYWORDS.some((k) => lower.includes(k));
 }

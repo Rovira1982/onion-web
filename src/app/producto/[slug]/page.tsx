@@ -68,7 +68,7 @@ export default async function ProductoPage({
       </nav>
 
       <div className="mt-6 grid gap-10 lg:grid-cols-2">
-        <ProductImageBox src={product.image} alt={product.name} />
+        <ProductImageBox images={product.images} alt={product.name} />
         <ProductDetailClient product={product} pack={activePack} />
       </div>
 
