@@ -42,7 +42,12 @@ export default function ProductDetailClient({
 
   return (
     <>
-      <ProductImageBox images={product.images} alt={product.name} selectedColor={selectedColor} />
+      <ProductImageBox
+        images={product.images}
+        alt={product.name}
+        selectedColor={selectedColor}
+        onSelectColor={setSelectedColor}
+      />
       <div>
       <span className="font-display text-xs font-semibold uppercase tracking-wide text-brand">
         {product.category}
@@ -64,27 +69,10 @@ export default function ProductDetailClient({
 
       {hasVariants && colors.length > 1 && (
         <div className="mt-5">
+          {/* El color ya no se elige con botones de texto — se pulsa
+              directamente la foto de ese color en la galería (petición del
+              dueño, 2026-10-01). Esto solo confirma cuál quedó elegido. */}
           <span className="font-display text-sm font-semibold text-ink-soft">Color: {selectedColor}</span>
-          {/* Pastillas tocables en vez de desplegable — el color se elige
-              directamente, sin abrir un <select> (petición del dueño,
-              2026-09-30). */}
-          <div className="mt-2 flex flex-wrap gap-2">
-            {colors.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setSelectedColor(c)}
-                aria-pressed={selectedColor === c}
-                className={`cursor-pointer rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
-                  selectedColor === c
-                    ? "border-brand bg-brand text-white"
-                    : "border-border text-ink hover:border-brand hover:text-brand"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
@@ -211,10 +199,12 @@ export function ProductImageBox({
   images,
   alt,
   selectedColor,
+  onSelectColor,
 }: {
   images: ProductImageDetail[];
   alt: string;
   selectedColor?: string;
+  onSelectColor?: (color: string) => void;
 }) {
   const [manualIndex, setManualIndex] = useState<number | null>(null);
 
@@ -251,9 +241,16 @@ export function ProductImageBox({
             <button
               key={img.url + i}
               type="button"
-              onClick={() => setManualIndex(i)}
+              onClick={() => {
+                // Una miniatura con color elige ese color de verdad (para
+                // el presupuesto), no solo cambia la foto — reemplaza a los
+                // antiguos botones de texto (petición del dueño,
+                // 2026-10-01). Una genérica (sin color) solo cambia la vista.
+                if (img.color && onSelectColor) onSelectColor(img.color);
+                else setManualIndex(i);
+              }}
               aria-pressed={selected === i}
-              aria-label={`Foto ${i + 1} de ${alt}`}
+              aria-label={img.color ? `Ver color ${img.color}` : `Foto ${i + 1} de ${alt}`}
               className={`h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border bg-white transition-colors ${
                 selected === i ? "border-brand" : "border-border hover:border-brand"
               }`}
