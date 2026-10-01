@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 import OccasionPicker from "./OccasionPicker";
 
 export default async function AdminOcasionDetailPage({
@@ -8,6 +9,7 @@ export default async function AdminOcasionDetailPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  await requireAdmin();
   const { slug } = await params;
   const occasion = await prisma.occasion.findUnique({ where: { slug } });
   if (!occasion) notFound();

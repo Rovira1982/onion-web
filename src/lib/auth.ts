@@ -7,6 +7,7 @@ import { randomBytes, scryptSync, timingSafeEqual, createHmac } from "node:crypt
 import { cookies } from "next/headers";
 import { prisma } from "./db";
 import { SESSION_COOKIE } from "./auth-constants";
+import { verifySessionSignature } from "./session-token";
 
 export { SESSION_COOKIE };
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 días
@@ -43,16 +44,7 @@ function createSessionToken(userId: string): string {
 }
 
 function verifySessionToken(token: string): string | null {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [userId, expiresAtStr, signature] = parts;
-  const payload = `${userId}.${expiresAtStr}`;
-  const expected = sign(payload);
-  const a = Buffer.from(signature, "hex");
-  const b = Buffer.from(expected, "hex");
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  if (Date.now() > Number(expiresAtStr)) return null;
-  return userId;
+  return verifySessionSignature(token, secret());
 }
 
 export async function createAdminSession(userId: string) {

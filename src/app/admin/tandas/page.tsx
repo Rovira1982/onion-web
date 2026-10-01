@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listSupplierOrders } from "@/lib/supplier-orders";
+import { requireAdmin } from "@/lib/auth";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -14,6 +15,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function AdminTandasPage() {
+  await requireAdmin();
   const orders = await listSupplierOrders();
 
   return (

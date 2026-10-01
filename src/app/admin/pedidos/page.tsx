@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listOrders } from "@/lib/orders";
+import { requireAdmin } from "@/lib/auth";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -8,6 +9,7 @@ function money(n: number) {
 // Listado mínimo para la exportación a FactuSol — no es el panel de
 // administración final, pero ya vive detrás de /admin/login (ver proxy.ts).
 export default async function AdminPedidosPage() {
+  await requireAdmin();
   const orders = await listOrders();
 
   return (

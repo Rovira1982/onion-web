@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDiscountCodeById } from "@/lib/discounts";
+import { requireAdmin } from "@/lib/auth";
 import CodeForm from "../CodeForm";
 
 export default async function EditarCodigoPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
   const { id } = await params;
   const discountCode = await getDiscountCodeById(id);
   if (!discountCode) notFound();

@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPromotionById } from "@/lib/promotions";
+import { requireAdmin } from "@/lib/auth";
 import PromotionForm from "../PromotionForm";
 
 export default async function EditarPromocionPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
   const { id } = await params;
   const promotion = await getPromotionById(id);
   if (!promotion) notFound();

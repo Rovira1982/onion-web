@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupplierOrderById } from "@/lib/supplier-orders";
+import { requireAdmin } from "@/lib/auth";
 import BultosSelector from "./BultosSelector";
 import { ConfirmarTandaButton, CancelarTandaButton, MarcarManualEnviadoButton } from "./TandaActions";
 import CopyManualList from "./CopyManualList";
@@ -18,6 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function AdminTandaDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
   const { id } = await params;
   const order = await getSupplierOrderById(id);
   if (!order) notFound();

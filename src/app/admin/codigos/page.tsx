@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { listDiscountCodes } from "@/lib/discounts";
+import { requireAdmin } from "@/lib/auth";
 
 function fmt(d: Date) {
   return d.toLocaleDateString("es-ES");
 }
 
 export default async function AdminCodigosPage() {
+  await requireAdmin();
   const codes = await listDiscountCodes();
 
   return (

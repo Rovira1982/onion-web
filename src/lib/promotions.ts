@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "./db";
+import { requireAdmin } from "./auth";
 
 export type Promotion = {
   id: string;
@@ -25,9 +26,11 @@ export async function getActivePromotion(): Promise<Promotion | null> {
 }
 
 export async function listPromotions(): Promise<Promotion[]> {
+  await requireAdmin();
   return prisma.promotion.findMany({ orderBy: { createdAt: "desc" } });
 }
 
 export async function getPromotionById(id: string): Promise<Promotion | null> {
+  await requireAdmin();
   return prisma.promotion.findUnique({ where: { id } });
 }

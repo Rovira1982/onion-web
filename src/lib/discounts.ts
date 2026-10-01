@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "./db";
+import { requireAdmin } from "./auth";
 
 export type DiscountCode = {
   id: string;
@@ -52,9 +53,11 @@ export async function validateDiscountCode(
 }
 
 export async function listDiscountCodes(): Promise<DiscountCode[]> {
+  await requireAdmin();
   return prisma.discountCode.findMany({ orderBy: { createdAt: "desc" } });
 }
 
 export async function getDiscountCodeById(id: string): Promise<DiscountCode | null> {
+  await requireAdmin();
   return prisma.discountCode.findUnique({ where: { id } });
 }

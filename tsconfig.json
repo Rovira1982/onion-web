@@ -30,5 +30,12 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // Scripts de un solo uso de cualquier sesión (prisma/_tmp-*.ts) — no son
+    // parte de la app, no deben poder bloquear `npm run build` si quedan
+    // desactualizados. Se siguen ejecutando igual con `npx tsx`, que no usa
+    // este include/exclude.
+    "prisma/_tmp-*.ts"
+  ]
 }

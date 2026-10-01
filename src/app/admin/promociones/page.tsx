@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { listPromotions } from "@/lib/promotions";
+import { requireAdmin } from "@/lib/auth";
 
 function fmt(d: Date) {
   return d.toLocaleDateString("es-ES");
 }
 
 export default async function AdminPromocionesPage() {
+  await requireAdmin();
   const promotions = await listPromotions();
   const now = new Date();
 

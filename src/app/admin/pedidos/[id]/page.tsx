@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderById } from "@/lib/orders";
+import { requireAdmin } from "@/lib/auth";
 import MarcarPagadoButton from "./MarcarPagadoButton";
 
 function money(n: number) {
@@ -8,6 +9,7 @@ function money(n: number) {
 }
 
 export default async function AdminPedidoDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
   const { id } = await params;
   const order = await getOrderById(id);
   if (!order) notFound();

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 // Same fixed order as src/lib/products.ts OCCASION_ORDER — kept in sync by
 // hand since that file has a "server-only" guard incompatible with scripts,
@@ -16,6 +17,7 @@ const OCCASION_ORDER = [
 ];
 
 export default async function AdminOcasionesPage() {
+  await requireAdmin();
   const occasions = await prisma.occasion.findMany({
     include: { _count: { select: { products: true } } },
   });
