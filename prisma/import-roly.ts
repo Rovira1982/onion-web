@@ -215,10 +215,16 @@ async function importBrand(opts: { brand: string; supplierName: string; topCateg
     let colorImagePosition = 1;
     for (const [color, url] of imageByColor) {
       if (url === primaryImage) continue; // ya guardada arriba como genérica
-      const existingColorImage = await prisma.productImage.findFirst({ where: { productId: product.id, url } });
-      if (!existingColorImage) {
-        await prisma.productImage.create({ data: { productId: product.id, url, position: colorImagePosition, color } });
-      }
+      // id determinista -> upsert en una sola consulta en vez de
+      // findFirst+create (2 consultas por color multiplicaban mucho el
+      // tiempo total contra la base de datos remota — visto en directo:
+      // esta misma ejecución tardó horas por esto).
+      const id = `${opts.supplierName.toLowerCase()}-${modelCode}-${color}`;
+      await prisma.productImage.upsert({
+        where: { id },
+        update: { url, color },
+        create: { id, productId: product.id, url, position: colorImagePosition, color },
+      });
       colorImagePosition++;
     }
 

@@ -316,10 +316,14 @@ async function main() {
         const color = c.colors?.es?.trim();
         const url = c.packshots?.["FACE SIDE"]?.url_packshot;
         if (!color || !url || url === primaryImage) continue;
-        const existingColorImage = await prisma.productImage.findFirst({ where: { productId: product.id, url } });
-        if (!existingColorImage) {
-          await prisma.productImage.create({ data: { productId: product.id, url, position: colorImagePosition, color } });
-        }
+        // id determinista -> upsert en una sola consulta (ver nota en
+        // import-cifra.ts: findFirst+create duplicaba el tiempo total).
+        const id = `toptex-${item.catalogReference}-${color}`;
+        await prisma.productImage.upsert({
+          where: { id },
+          update: { url, color },
+          create: { id, productId: product.id, url, position: colorImagePosition, color },
+        });
         colorImagePosition++;
       }
 

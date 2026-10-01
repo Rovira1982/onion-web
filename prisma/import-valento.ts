@@ -129,10 +129,14 @@ async function main() {
       let colorImagePosition = 1;
       for (const [color, url] of imageByColor) {
         if (url === primaryImage) continue;
-        const existingColorImage = await prisma.productImage.findFirst({ where: { productId: product.id, url } });
-        if (!existingColorImage) {
-          await prisma.productImage.create({ data: { productId: product.id, url, position: colorImagePosition, color } });
-        }
+        // id determinista -> upsert en una sola consulta (ver nota en
+        // import-cifra.ts: findFirst+create duplicaba el tiempo total).
+        const id = `valento-${p.article_ref}-${color}`;
+        await prisma.productImage.upsert({
+          where: { id },
+          update: { url, color },
+          create: { id, productId: product.id, url, position: colorImagePosition, color },
+        });
         colorImagePosition++;
       }
 
