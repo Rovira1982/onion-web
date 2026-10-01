@@ -59,6 +59,7 @@ export function slugify(input: string) {
 // customer the wrong personalization technique is worse than an unclear code.
 const TECHNIQUE_LABELS: Record<string, string> = {
   DTF: "Impresión DTF",
+  F: "Serigrafía",
   DIGITAL: "Impresión digital",
   BORDADO: "Bordado",
   BORDA: "Bordado",
@@ -81,6 +82,11 @@ const TECHNIQUE_LABELS: Record<string, string> = {
 // marcaje en la ficha cuando el código es uno de estos, nunca se adivina.
 const ONLINE_TECHNIQUE_CODES: Record<string, "DTF" | "Serigrafia" | "Vinilo" | "Sublimacion"> = {
   DTF: "DTF",
+  // "F" = Serigrafía — confirmado en directo, 2026-10-01: aparece como
+  // "SERIGRAFÍA F" en dos productos reales de Makito (bolsa y camiseta),
+  // mismo código que ya traía Cifra para su bolsa Zeta (F,DTF). No es un
+  // código inventado por un proveedor, parece estándar del sector.
+  F: "Serigrafia",
   SUB1: "Sublimacion",
   SUB2: "Sublimacion",
   SUBP: "Sublimacion",
