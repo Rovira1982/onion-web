@@ -265,6 +265,26 @@ async function main() {
         });
       }
 
+      // Una foto por color (petición del dueño, 2026-10-01) — el nombre de
+      // archivo de cada imagen coincide con el código de combinación (ej.
+      // ".../ME17Y.jpg" -> combinación "ME17Y"), confirmado en directo; se
+      // cruza contra combinations[].attributes.color para etiquetarla.
+      let colorImagePosition = 1;
+      for (const img of core.images ?? []) {
+        if (img.url === mainImage) continue;
+        const fileBase = img.url.split("/").pop()?.replace(/\.[^.]+$/, "");
+        const combo = fileBase ? combinations[fileBase] : undefined;
+        const color = combo?.attributes?.color ?? combo?.attributes?.Color;
+        if (!color) continue;
+        const id = `enyes-${familyCode}-${fileBase}`;
+        await prisma.productImage.upsert({
+          where: { id },
+          update: { url: img.url, color },
+          create: { id, productId: product.id, url: img.url, position: colorImagePosition, color },
+        });
+        colorImagePosition++;
+      }
+
       for (const [comboCode, combo] of Object.entries(combinations)) {
         const realCost = baseCost(tarifaByCombo[comboCode]?.rates);
         const price = realCost != null ? Math.round(realCost * MARGEN * 100) / 100 : productBasePrice;

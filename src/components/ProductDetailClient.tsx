@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { describeEngravingTechnique, describeMaterial, parseOnlineTechniques, type ProductDetail } from "@/lib/product-format";
+import { describeEngravingTechnique, describeMaterial, parseOnlineTechniques, type ProductDetail, type ProductImageDetail } from "@/lib/product-format";
 import AddToCartForm, { isGarmentCategory } from "@/components/AddToCartForm";
 import PackAddToCartForm from "@/components/PackAddToCartForm";
 import SimpleMarkingAddToCartForm from "@/components/SimpleMarkingAddToCartForm";
@@ -41,7 +41,9 @@ export default function ProductDetailClient({
   const displayRef = selected?.supplierModelCode;
 
   return (
-    <div>
+    <>
+      <ProductImageBox images={product.images} alt={product.name} selectedColor={selectedColor} />
+      <div>
       <span className="font-display text-xs font-semibold uppercase tracking-wide text-brand">
         {product.category}
         {product.subcategory ? ` · ${product.subcategory}` : ""}
@@ -200,13 +202,32 @@ export default function ProductDetailClient({
           Seguir viendo catálogo
         </Link>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
-export function ProductImageBox({ images, alt }: { images: string[]; alt: string }) {
-  const [selected, setSelected] = useState(0);
-  const src = images[selected] ?? images[0] ?? "";
+export function ProductImageBox({
+  images,
+  alt,
+  selectedColor,
+}: {
+  images: ProductImageDetail[];
+  alt: string;
+  selectedColor?: string;
+}) {
+  const [manualIndex, setManualIndex] = useState<number | null>(null);
+
+  // Si el cliente pulsa un color y ese color tiene foto propia (ej. Roly),
+  // la foto principal cambia sola — petición del dueño, 2026-10-01. Un
+  // clic manual en una miniatura gana hasta que el color vuelva a cambiar.
+  const colorImageIndex = selectedColor ? images.findIndex((img) => img.color === selectedColor) : -1;
+  useEffect(() => {
+    setManualIndex(null);
+  }, [selectedColor]);
+
+  const selected = manualIndex ?? (colorImageIndex !== -1 ? colorImageIndex : 0);
+  const src = images[selected]?.url ?? images[0]?.url ?? "";
 
   return (
     <div>
@@ -228,16 +249,16 @@ export function ProductImageBox({ images, alt }: { images: string[]; alt: string
         <div className="mt-3 flex flex-wrap gap-2">
           {images.map((img, i) => (
             <button
-              key={img + i}
+              key={img.url + i}
               type="button"
-              onClick={() => setSelected(i)}
+              onClick={() => setManualIndex(i)}
               aria-pressed={selected === i}
               aria-label={`Foto ${i + 1} de ${alt}`}
               className={`h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border bg-white transition-colors ${
                 selected === i ? "border-brand" : "border-border hover:border-brand"
               }`}
             >
-              <Image src={img} alt="" width={64} height={64} unoptimized className="h-full w-full object-contain p-1" />
+              <Image src={img.url} alt="" width={64} height={64} unoptimized className="h-full w-full object-contain p-1" />
             </button>
           ))}
         </div>

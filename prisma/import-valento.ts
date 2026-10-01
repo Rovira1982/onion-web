@@ -117,6 +117,25 @@ async function main() {
         }
       }
 
+      // Una foto por color (petición del dueño, 2026-10-01) — cada variante
+      // ya trae su propia foto, antes se descartaba quedándose solo con la
+      // del primer color.
+      const imageByColor = new Map<string, string>();
+      for (const v of p.variants) {
+        const color = v.color?.trim();
+        const url = v.image_web || v.image;
+        if (color && url && !imageByColor.has(color)) imageByColor.set(color, url);
+      }
+      let colorImagePosition = 1;
+      for (const [color, url] of imageByColor) {
+        if (url === primaryImage) continue;
+        const existingColorImage = await prisma.productImage.findFirst({ where: { productId: product.id, url } });
+        if (!existingColorImage) {
+          await prisma.productImage.create({ data: { productId: product.id, url, position: colorImagePosition, color } });
+        }
+        colorImagePosition++;
+      }
+
       for (const v of p.variants) {
         const price = Math.round(v.net_price * MARGEN * 100) / 100;
         await prisma.productVariant.upsert({

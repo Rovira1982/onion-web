@@ -119,7 +119,7 @@ export const getProductBySlug = cache(async (slug: string): Promise<ProductDetai
   if (!match) return null;
   return {
     ...toProduct(match),
-    images: match.images.map((img) => img.url),
+    images: match.images.map((img) => ({ url: img.url, color: img.color ?? null })),
     variants: match.variants.map((v) => ({
       id: v.id,
       size: v.size ?? "",

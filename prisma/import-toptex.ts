@@ -308,6 +308,21 @@ async function main() {
         }
       }
 
+      // Una foto por color (petición del dueño, 2026-10-01) — cada grupo de
+      // color ya trae su propio packshot, antes se descartaba quedándose
+      // solo con el del primer color.
+      let colorImagePosition = 1;
+      for (const c of item.colors) {
+        const color = c.colors?.es?.trim();
+        const url = c.packshots?.["FACE SIDE"]?.url_packshot;
+        if (!color || !url || url === primaryImage) continue;
+        const existingColorImage = await prisma.productImage.findFirst({ where: { productId: product.id, url } });
+        if (!existingColorImage) {
+          await prisma.productImage.create({ data: { productId: product.id, url, position: colorImagePosition, color } });
+        }
+        colorImagePosition++;
+      }
+
       for (const s of allSizes) {
         const net = priceBySku.get(s.sku) ?? 0;
         const price = Math.round(net * MARGEN * 100) / 100;

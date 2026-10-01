@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
-import ProductDetailClient, { ProductImageBox } from "@/components/ProductDetailClient";
+import ProductDetailClient from "@/components/ProductDetailClient";
 import { getProductBySlug, getProductsByCategorySlug, slugify } from "@/lib/products";
 import { getPack } from "@/lib/packs";
 
@@ -68,7 +68,6 @@ export default async function ProductoPage({
       </nav>
 
       <div className="mt-6 grid gap-10 lg:grid-cols-2">
-        <ProductImageBox images={product.images} alt={product.name} />
         <ProductDetailClient product={product} pack={activePack} />
       </div>
 

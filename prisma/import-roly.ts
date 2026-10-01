@@ -202,6 +202,26 @@ async function importBrand(opts: { brand: string; supplierName: string; topCateg
       }
     }
 
+    // Una foto por color (petición del dueño, 2026-10-01: al pulsar un
+    // color en la ficha, la foto debe cambiar) — Gorfactory sí da un
+    // productimage distinto por fila de color/talla, antes se descartaba
+    // quedándose solo con el de la fila representativa.
+    const imageByColor = new Map<string, string>();
+    for (const row of rows) {
+      const color = row.colorname?.trim();
+      const image = row.productimage || row.modelimage;
+      if (color && image && !imageByColor.has(color)) imageByColor.set(color, image);
+    }
+    let colorImagePosition = 1;
+    for (const [color, url] of imageByColor) {
+      if (url === primaryImage) continue; // ya guardada arriba como genérica
+      const existingColorImage = await prisma.productImage.findFirst({ where: { productId: product.id, url } });
+      if (!existingColorImage) {
+        await prisma.productImage.create({ data: { productId: product.id, url, position: colorImagePosition, color } });
+      }
+      colorImagePosition++;
+    }
+
     for (const row of rows) {
       const net = priceBySku.get(row.itemcode) ?? 0;
       const price = Math.round(net * MARGEN * 100) / 100;

@@ -33,11 +33,15 @@ export type ProductVariant = {
   supplierModelCode: string;
 };
 
+export type ProductImageDetail = { url: string; color: string | null };
+
 export type ProductDetail = Product & {
   variants: ProductVariant[];
   // Todas las fotos del producto (la ficha muestra galería) — `image` sigue
   // siendo solo la primera, para los sitios que ya la usan (tarjetas, OG).
-  images: string[];
+  // `color` liga una foto a un color concreto (ej. Roly) — null = foto
+  // genérica, se muestra en la galería para cualquier color.
+  images: ProductImageDetail[];
 };
 
 export function slugify(input: string) {

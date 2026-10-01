@@ -171,6 +171,12 @@ model ProductImage {
   product   Product @relation(fields: [productId], references: [id])
   url       String
   position  Int     @default(0)
+  // Color exacto (mismo string que ProductVariant.color) si el proveedor
+  // da una foto distinta por color — null = foto genérica del producto,
+  // no ligada a ningún color concreto. Petición del dueño, 2026-10-01: al
+  // pulsar un color en la ficha, la foto principal debe cambiar si hay una
+  // específica para ese color (ej. Dogo de Roly).
+  color     String?
 
   @@map("product_images")
 }
