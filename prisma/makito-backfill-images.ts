@@ -184,25 +184,36 @@ async function main() {
     const variants = p.variants ?? [];
     const totalStock = variants.reduce((sum, v) => sum + (stockByMaterial.get(makitoMaterialCode(p.ref, v)) ?? 0), 0);
 
-    await prisma.$transaction(
-      [
-        prisma.productImage.create({ data: { productId: dbProduct.id, url, position: 0 } }),
-        prisma.product.update({ where: { id: dbProduct.id }, data: { stock: totalStock } }),
-        ...variants.map((v) =>
-          prisma.productVariant.updateMany({
-            where: { supplierModelCode: makitoMaterialCode(p.ref, v) },
-            data: { stock: stockByMaterial.get(makitoMaterialCode(p.ref, v)) ?? 0 },
-          })
-        ),
-      ],
-      // Proxy público de Railway va lento con varias operaciones — el
-      // timeout de 5s por defecto de Prisma no es suficiente aquí (visto
-      // en directo: 5335ms en un producto con pocas variantes).
-      { timeout: 20000 }
-    );
+    try {
+      await prisma.$transaction(
+        [
+          prisma.productImage.create({ data: { productId: dbProduct.id, url, position: 0 } }),
+          prisma.product.update({ where: { id: dbProduct.id }, data: { stock: totalStock } }),
+          ...variants.map((v) =>
+            prisma.productVariant.updateMany({
+              where: { supplierModelCode: makitoMaterialCode(p.ref, v) },
+              data: { stock: stockByMaterial.get(makitoMaterialCode(p.ref, v)) ?? 0 },
+            })
+          ),
+        ],
+        // Proxy público de Railway va lento con varias operaciones — el
+        // timeout de 5s por defecto de Prisma no es suficiente aquí (visto
+        // en directo: 5335ms en un producto con pocas variantes, y hasta
+        // 20331ms en uno con muchas — subido a 30s con margen).
+        { timeout: 30000 }
+      );
+      activated++;
+    } catch (err) {
+      // Bug real encontrado en directo, 2026-10-01: este fallo (P2028,
+      // timeout de transacción) tumbaba el script ENTERO a mitad de un lote
+      // de miles de productos, perdiendo el progreso de log (aunque no el
+      // de BD, ya hecho commit producto a producto) — un solo producto lento
+      // no debe tirar todo el lote abajo.
+      failed++;
+      console.log(`  ⚠ Fallo en ${p.ref}, lo salto: ${(err as Error).message.slice(0, 150)}`);
+    }
 
-    activated++;
-    if (activated % 20 === 0) {
+    if ((activated + failed) % 20 === 0) {
       console.log(`  ${activated} activados, ${failed} sin foto disponible (de ${products.length} en este lote)...`);
     }
 
