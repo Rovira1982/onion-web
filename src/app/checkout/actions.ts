@@ -8,6 +8,7 @@ import { groupQuantityTotals } from "@/lib/design-group";
 import { validateDiscountCode, type DiscountCheckResult } from "@/lib/discounts";
 import { getPack, type PackDefinition } from "@/lib/packs";
 import { slugify } from "@/lib/product-format";
+import { sendCapiEvent } from "@/lib/meta-capi";
 
 // Envío al cliente — 6€ fijo, gratis desde 300€ de importe final (con
 // descuento e IVA incluidos, sin contar el propio envío). Decisión del
@@ -144,7 +145,6 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
     packUnitPriceByGroup.set(key, Math.round((pack.totalPrice / 1.21 / pack.quantity) * 100) / 100);
     packDefByGroup.set(key, pack);
   }
-  const hasPackItem = packUnitPriceByGroup.size > 0;
 
   // Redondear cada unidad a céntimos hace que (unitPrice × qty) × 1.21 no
   // caiga exactamente en pack.totalPrice (p.ej. 69,00€ real puede salir en
@@ -267,9 +267,10 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
       }
 
       const totalBeforeShipping = (subtotal - discountAmount) * 1.21; // IVA incl. — matches what the checkout page shows the customer
-      // Envío absorbido en los packs de precio cerrado (decisión del dueño,
-      // 2026-09-30, "para crear marca") — su precio anunciado ya lo incluye.
-      const shippingCost = hasPackItem || totalBeforeShipping >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+      // Los packs ya NO absorben el envío (decisión del dueño, 2026-10-01,
+      // vía Finanzas — el precio de 79€ del pack Racing no lo incluye, se
+      // cobra aparte como cualquier pedido). Sigue la regla normal.
+      const shippingCost = totalBeforeShipping >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
       const total = totalBeforeShipping + shippingCost + packVatCorrection;
 
       return tx.order.create({
@@ -292,6 +293,19 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
           lines: { create: lines },
         },
       });
+    });
+
+    // Fire-and-forget: never let a Meta/CAPI hiccup slow down or fail the
+    // checkout response — sendCapiEvent already swallows its own errors.
+    // event_id = order.id so the client-side Purchase fired on the gracias
+    // page (see PurchasePixel) dedupes with this one in Meta's eyes.
+    void sendCapiEvent({
+      eventName: "Purchase",
+      eventId: order.id,
+      email: input.contactEmail,
+      phone: input.contactPhone || undefined,
+      value: parseFloat(order.total.toString()),
+      currency: "EUR",
     });
 
     return { orderId: order.id };

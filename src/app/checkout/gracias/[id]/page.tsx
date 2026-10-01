@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderConfirmation } from "@/lib/orders";
+import PurchasePixel from "@/components/PurchasePixel";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -14,6 +15,7 @@ export default async function GraciasPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6 lg:px-8">
+      <PurchasePixel orderId={order.id} value={order.total} />
       <h1 className="text-3xl font-bold text-ink">¡Pedido recibido!</h1>
       <p className="mt-3 text-ink-soft">
         En breve te enviaremos el enlace de pago a <strong className="text-ink">{order.contactEmail}</strong>.

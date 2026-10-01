@@ -49,11 +49,9 @@ export default function CheckoutPage() {
   const subtotalConDescuento = subtotal - discountAmount;
   const vat = subtotalConDescuento * 0.21;
   const totalBeforeShipping = subtotalConDescuento + vat;
-  // Envío absorbido en los packs de precio cerrado — debe coincidir con la
-  // misma regla del servidor (ver crearPedido) o esta vista previa
-  // prometería un total distinto del que realmente se cobra.
-  const hasPackItem = items.some((i) => i.packCode);
-  const shippingCost = hasPackItem || totalBeforeShipping >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+  // Debe coincidir con la misma regla del servidor (ver crearPedido) o esta
+  // vista previa prometería un total distinto del que realmente se cobra.
+  const shippingCost = totalBeforeShipping >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
   // Mismo redondeo a céntimos que el servidor (ver crearPedido) — sin esta
   // corrección la vista previa se quedaría unos céntimos por debajo del
   // precio de pack anunciado.
