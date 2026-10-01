@@ -30,7 +30,6 @@ const r2 = new S3Client({
   },
 });
 const R2_BUCKET = process.env.R2_BUCKET_NAME!;
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 function parseArgs() {
   const limitArg = process.argv.find((a) => a.startsWith("--limit="));
@@ -112,7 +111,17 @@ async function downloadAndStore(
   const ext = key.split(".").pop()?.toLowerCase() ?? "";
   const contentType = EXT_TO_CONTENT_TYPE[ext] ?? "image/jpeg";
   await r2.send(new PutObjectCommand({ Bucket: R2_BUCKET, Key: key, Body: buffer, ContentType: contentType }));
-  return `${SITE_URL}/api/uploads/${key}`;
+  // Ruta relativa, no absoluta — mismo patrón que subirLogo() en
+  // producto/[slug]/actions.ts. Un dominio grabado en la base de datos se
+  // queda obsoleto en cuanto cambia (dev local vs producción, o el futuro
+  // dominio definitivo); una ruta relativa resuelve sola contra el dominio
+  // real desde el que se sirva la página, sin migración de datos. Bug real
+  // encontrado en directo, 2026-10-01: esta función escribía
+  // `${SITE_URL}/api/uploads/...` con el NEXT_PUBLIC_SITE_URL de quien
+  // lanzara el script — como esto se lanzó en local contra la BD
+  // compartida de producción, 4566 fotos quedaron apuntando a
+  // "localhost:3000", rotas para cualquier cliente real.
+  return `/api/uploads/${key}`;
 }
 
 function sleep(ms: number) {

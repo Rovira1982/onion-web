@@ -234,8 +234,13 @@ export async function searchProducts(opts: {
       ...(opts.q
         ? [
             {
+              // Buscar por marca también, no solo nombre/categoría — un
+              // cliente que escribe "Roly" en el buscador espera ver
+              // productos Roly, no solo coincidencias sueltas de letras en
+              // otros nombres (bug real reportado por el dueño, 2026-10-01).
               OR: [
                 { name: { contains: opts.q, mode: "insensitive" as const } },
+                { brand: { contains: opts.q, mode: "insensitive" as const } },
                 { category: { name: { contains: opts.q, mode: "insensitive" as const } } },
                 { subcategory: { contains: opts.q, mode: "insensitive" as const } },
               ],
