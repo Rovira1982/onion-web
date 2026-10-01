@@ -40,6 +40,20 @@ export default function Header() {
           ))}
         </nav>
 
+        {/* Buscador siempre visible, en cualquier página — antes solo
+            estaba dentro de /catalogo, así que buscar otro producto desde
+            una ficha obligaba a volver a inicio primero (petición del
+            dueño, 2026-10-01). Formulario GET normal, sin JS, para que
+            funcione también si el cliente aterriza aquí sin hidratar. */}
+        <form action="/catalogo" className="hidden flex-1 max-w-xs items-center md:flex">
+          <input
+            type="search"
+            name="q"
+            placeholder="Buscar productos o marcas…"
+            className="w-full rounded-full border border-border bg-muted px-4 py-2 text-sm text-ink placeholder:text-ink-soft focus:border-brand focus:outline-none"
+          />
+        </form>
+
         <div className="flex shrink-0 items-center gap-3">
           <Link
             href="/presupuesto"
@@ -80,6 +94,18 @@ export default function Header() {
           </div>
         </details>
       </div>
+
+      {/* Misma idea que el buscador de arriba, pero para móvil (donde la
+          barra de nav/CTA no tiene hueco para meterlo en la misma fila) —
+          segunda fila siempre visible, no escondida detrás del menú. */}
+      <form action="/catalogo" className="border-t border-border px-4 pb-3 pt-2 sm:px-6 md:hidden">
+        <input
+          type="search"
+          name="q"
+          placeholder="Buscar productos o marcas…"
+          className="w-full rounded-full border border-border bg-muted px-4 py-2 text-sm text-ink placeholder:text-ink-soft focus:border-brand focus:outline-none"
+        />
+      </form>
     </header>
   );
 }
