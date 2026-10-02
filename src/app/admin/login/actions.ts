@@ -16,6 +16,6 @@ export async function loginAdmin(email: string, password: string): Promise<Login
     return { error: "Credenciales incorrectas." };
   }
 
-  await createAdminSession(user.id);
+  await createAdminSession(user.id, user.sessionVersion);
   return { ok: true };
 }

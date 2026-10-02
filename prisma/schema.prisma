@@ -198,6 +198,9 @@ model User {
   name             String?
   marketingConsent Boolean  @default(false)
   role             UserRole @default(cliente)
+  // +1 en cada logout de admin; invalida cualquier token firmado antes de
+  // ese momento (copiado o no) — parche de seguridad, Guardian P7, 2026-10-02.
+  sessionVersion   Int      @default(0)
   createdAt        DateTime @default(now())
   orders           Order[]
   confirmedSupplierOrders SupplierOrder[]

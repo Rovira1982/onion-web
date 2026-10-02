@@ -4,12 +4,13 @@ import { prisma } from "@/lib/db";
 import { type QuoteInput } from "@/lib/pricing";
 import { personalizedUnitPrice, PERSONALIZED_EXTRA_MARGIN } from "@/lib/line-price";
 import { selectGarmentTier } from "@/lib/garment-price";
-import { groupQuantityTotals } from "@/lib/design-group";
+import { groupQuantityTotals, markingSignature } from "@/lib/design-group";
 import { validateDiscountCode, type DiscountCheckResult } from "@/lib/discounts";
 import { getPack, type PackDefinition } from "@/lib/packs";
 import { slugify } from "@/lib/product-format";
 import { sendCapiEvent } from "@/lib/meta-capi";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { rateLimited } from "@/lib/rate-limit";
 
 // Debe coincidir exactamente con MARKETING_CONSENT_COOKIE en src/lib/consent.ts
 // (no se importa de ahí directamente — ese módulo es "use client"). Parche de
@@ -75,6 +76,13 @@ export async function comprobarCodigoDescuento(
   subtotal: number,
   email: string
 ): Promise<DiscountCheckResult> {
+  // Sin esto, los 4 mensajes de error distintos de validateDiscountCode (ya
+  // colapsados a uno solo) se podían sondear sin límite para enumerar
+  // códigos reales — parche de seguridad, Guardian P6, 2026-10-02.
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (rateLimited(`discount:${ip}`, 20, 60_000)) {
+    return { valid: false, error: "Demasiados intentos. Prueba de nuevo en un minuto." };
+  }
   return validateDiscountCode(code, subtotal, email);
 }
 
@@ -114,6 +122,27 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
   const normalizedItems = input.items.map((item) => ({ ...item, quantity: Math.max(1, Math.floor(item.quantity)) }));
   const groupTotals = groupQuantityTotals(normalizedItems);
   const groupKey = (item: (typeof normalizedItems)[number], idx: number) => item.designGroupId ?? `__solo_${idx}`;
+
+  // Un designGroupId agrupa líneas para sumar su cantidad y cobrar el
+  // marcaje por el total (ver groupQuantityTotals arriba) — sin esto, dos
+  // líneas con técnica/zonas distintas podrían compartir designGroupId para
+  // inflar el tramo de precio con cantidad de un diseño que en realidad no
+  // comparten. Los grupos de pack ya se validan aparte, más abajo. Parche de
+  // seguridad, Guardian P5, 2026-10-02.
+  const markingGroupSignatures = new Map<string, string>();
+  for (const [idx, item] of normalizedItems.entries()) {
+    if (item.packCode || !item.marking) continue;
+    const key = groupKey(item, idx);
+    const sig = markingSignature(item.marking);
+    const seen = markingGroupSignatures.get(key);
+    if (seen === undefined) {
+      markingGroupSignatures.set(key, sig);
+      continue;
+    }
+    if (seen !== sig) {
+      return { error: "Las líneas agrupadas bajo el mismo diseño deben tener la misma técnica y configuración de marcaje." };
+    }
+  }
 
   // Packs de precio cerrado (ver src/lib/packs.ts) — el precio NUNCA sale
   // del cliente ni de calculateQuote: sale de PACKS, validado aquí contra

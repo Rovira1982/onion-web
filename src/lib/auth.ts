@@ -3,11 +3,11 @@
 // cookie value (HMAC-SHA256) rather than a DB-backed session table — simple
 // enough for a single-admin tool, and stateless so nothing to clean up.
 import "server-only";
-import { randomBytes, scryptSync, timingSafeEqual, createHmac } from "node:crypto";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { prisma } from "./db";
 import { SESSION_COOKIE } from "./auth-constants";
-import { verifySessionSignature } from "./session-token";
+import { signSessionPayload, verifySessionSignature } from "./session-token";
 
 export { SESSION_COOKIE };
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 días
@@ -33,23 +33,14 @@ export function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(candidate, expected);
 }
 
-function sign(value: string): string {
-  return createHmac("sha256", secret()).update(value).digest("hex");
-}
-
-function createSessionToken(userId: string): string {
+function createSessionToken(userId: string, sessionVersion: number): string {
   const expiresAt = Date.now() + SESSION_MAX_AGE_SECONDS * 1000;
-  const payload = `${userId}.${expiresAt}`;
-  return `${payload}.${sign(payload)}`;
+  return signSessionPayload(userId, sessionVersion, expiresAt, secret());
 }
 
-function verifySessionToken(token: string): string | null {
-  return verifySessionSignature(token, secret());
-}
-
-export async function createAdminSession(userId: string) {
+export async function createAdminSession(userId: string, sessionVersion: number) {
   const store = await cookies();
-  store.set(SESSION_COOKIE, createSessionToken(userId), {
+  store.set(SESSION_COOKIE, createSessionToken(userId, sessionVersion), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -58,9 +49,14 @@ export async function createAdminSession(userId: string) {
   });
 }
 
-export async function destroyAdminSession() {
+// userId se lo pasa quien llama (vía getAdminUser(), que ya lo tiene) — el
+// incremento de sessionVersion invalida cualquier token previo, copiado o
+// no, en vez de solo borrar la cookie de este navegador. Parche de
+// seguridad, Guardian P7, 2026-10-02.
+export async function destroyAdminSession(userId: string) {
   const store = await cookies();
   store.delete(SESSION_COOKIE);
+  await prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } });
 }
 
 // Returns the logged-in admin User, or null. Safe to call from any Server
@@ -69,10 +65,11 @@ export async function getAdminUser() {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const userId = verifySessionToken(token);
-  if (!userId) return null;
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const parsed = verifySessionSignature(token, secret());
+  if (!parsed) return null;
+  const user = await prisma.user.findUnique({ where: { id: parsed.userId } });
   if (!user || user.role !== "admin") return null;
+  if (user.sessionVersion !== parsed.sessionVersion) return null; // token de una sesión ya cerrada
   return user;
 }
 
