@@ -30,6 +30,12 @@ export type OrderDetail = {
     productName: string;
     previewImageUrl: string | null;
     supplierModelCode: string;
+    // Código de artículo para FactuSol (máx. 13 caracteres) — factusolCode
+    // si el maestro lo recortó, si no supplierCode tal cual; null cuando el
+    // maestro de precios aún no ha pasado por este producto (ver
+    // import-maestro-precios.ts), en cuyo caso buildLineas() cae a supplierSku.
+    factusolArticleCode: string | null;
+    supplierSku: string | null;
     size: string;
     color: string;
   }[];
@@ -70,7 +76,14 @@ async function fetchOrderDetail(id: string): Promise<OrderDetail | null> {
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
-      lines: { include: { productVariant: { include: { product: true } }, design: true } },
+      lines: {
+      include: {
+        productVariant: {
+          include: { product: { select: { name: true, factusolCode: true, supplierCode: true, supplierSku: true } } },
+        },
+        design: true,
+      },
+    },
       discountCode: { select: { code: true } },
     },
   });
@@ -104,6 +117,8 @@ async function fetchOrderDetail(id: string): Promise<OrderDetail | null> {
       productName: line.productVariant?.product.name ?? "Producto retirado del catálogo",
       previewImageUrl: line.design?.previewImageUrl ?? null,
       supplierModelCode: line.productVariant?.supplierModelCode ?? "",
+      factusolArticleCode: line.productVariant?.product.factusolCode ?? line.productVariant?.product.supplierCode ?? null,
+      supplierSku: line.productVariant?.product.supplierSku ?? null,
       size: line.productVariant?.size ?? "",
       color: line.productVariant?.color ?? "",
     })),
