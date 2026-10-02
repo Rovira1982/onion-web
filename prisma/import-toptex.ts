@@ -11,6 +11,8 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma";
 
@@ -18,10 +20,17 @@ import { PrismaClient } from "../src/generated/prisma";
 // minutes) — the process has died mid-catalog-loop a couple of times on
 // this machine for reasons unrelated to the API (no error logged), so a
 // retry re-fetching pricing from scratch each time wastes minutes before
-// even reaching the point it died at last time. Cached outside the repo
-// (scratchpad), deleted once the import finishes cleanly.
-const CACHE_DIR =
-  "C:\\Users\\USUARIO\\AppData\\Local\\Temp\\claude\\E--onion-26-web\\460ff51e-804d-484e-bb44-9a6fa7f16a05\\scratchpad";
+// even reaching the point it died at last time. Cached outside the repo.
+//
+// Bug real encontrado en producción, 2026-10-02: esto apuntaba a una ruta
+// de Windows fija del scratchpad de una sesión de Claude en el portátil de
+// desarrollo — funcionaba en local por casualidad (esa carpeta existía ahí),
+// pero en Railway (Linux) la ruta no existe y la escritura de la caché
+// tumbaba todo el sync con ENOENT, incluso después de que TopTex ya hubiera
+// respondido bien. os.tmpdir() es portable (Windows y Linux), y se crea la
+// carpeta explícitamente por si no existe.
+const CACHE_DIR = path.join(os.tmpdir(), "onion-toptex-cache");
+fs.mkdirSync(CACHE_DIR, { recursive: true });
 const PRICE_CACHE = `${CACHE_DIR}/toptex-prices-cache.json`;
 const INVENTORY_CACHE = `${CACHE_DIR}/toptex-inventory-cache.json`;
 // Last catalog page fully written to the DB — a retry resumes from the next
