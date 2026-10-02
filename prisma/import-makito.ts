@@ -62,10 +62,6 @@ type MakitoProduct = {
   printcode?: string;
   categories?: string[];
   image?: string;
-  // CSV ordenado de las tallas reales del producto, p.ej. "S,M,L,XL,XXL,3XL"
-  // — ver sizeLabelFor() más abajo, es la única forma fiable de traducir el
-  // código numérico de variant_size a una talla legible.
-  sizes?: string;
   variants?: MakitoVariant[];
 };
 
@@ -74,26 +70,31 @@ type MakitoProduct = {
 // SWC280/outlet Keya): la web solo guardaba "Talla única" porque el
 // `size` del variante nunca se rellenaba, y la talla real se quedaba
 // enterrada sin separar dentro del campo `color` (ver parseColorLabel).
-// Los códigos no tienen una tabla fija documentada, pero SÍ ordenan en el
-// mismo orden que la lista `sizes` del producto (confirmado en directo:
-// SWC280 trae sizes="S,M,L,XL,XXL,3XL" y variant_size únicos
-// 102,103,104,105,106,107, en ese mismo orden) — así que se resuelven
-// emparejando los códigos únicos del producto, ordenados, con esa lista,
-// en vez de adivinar una tabla global que podría no aplicar a todos los
-// productos (zapatos, talla única, etc).
-export function sizeLabelFor(product: MakitoProduct, allVariants: MakitoVariant[], variant: MakitoVariant): string | null {
+//
+// Primer intento (descartado): emparejar los códigos únicos del producto,
+// ordenados, con la lista `sizes` del propio producto — funcionaba en
+// SWC280 pero resultó ser un espejismo. Encontrado en directo, mismo día:
+// "Dretius" trae sizes="XS,L,M,S,XL,XXL,3XL" (L y S puestos a mano en el
+// orden equivocado por Makito) lo que intercambiaba S<->L en la web. Los
+// códigos SÍ son una tabla fija GLOBAL, confirmado escaneando variant_size
+// + la última palabra de variant_name en los 4.609 productos del catálogo:
+// 101=XS, 102=S, 103=M, 104=L, 105=XL, 106=XXL, 107=3XL, 108=4XL, siempre,
+// en cualquier producto — así que no hace falta (ni conviene) mirar el
+// campo `sizes` del producto para nada.
+const MAKITO_SIZE_CODE: Record<string, string> = {
+  "101": "XS",
+  "102": "S",
+  "103": "M",
+  "104": "L",
+  "105": "XL",
+  "106": "XXL",
+  "107": "3XL",
+  "108": "4XL",
+};
+
+export function sizeLabelFor(variant: MakitoVariant): string | null {
   if (!variant.variant_size) return null;
-  const sizesList = (product.sizes ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (sizesList.length === 0) return null;
-  const distinctCodes = [...new Set(allVariants.map((v) => v.variant_size).filter((s): s is string => s != null))].sort(
-    (a, b) => Number(a) - Number(b)
-  );
-  const idx = distinctCodes.indexOf(variant.variant_size);
-  if (idx === -1 || idx >= sizesList.length) return null;
-  return sizesList[idx];
+  return MAKITO_SIZE_CODE[variant.variant_size] ?? null;
 }
 
 // variant_name trae el nombre completo descriptivo ("Sudadera Ad. -Keya-
@@ -103,7 +104,40 @@ export function sizeLabelFor(product: MakitoProduct, allVariants: MakitoVariant[
 // coincidía con el "Swc280" real dentro de variant_name), así que no
 // quitaba nada y el campo `color` acababa con el texto entero sin tocar,
 // talla incluida — de ahí que la web nunca viera una talla real.
-export function parseColorLabel(productName: string, variantName: string | undefined, sizeLabel: string | null): string | null {
+function commonPrefix(a: string, b: string): string {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i].toLowerCase() === b[i].toLowerCase()) i++;
+  return a.slice(0, i);
+}
+
+// Residuo real encontrado por Josep tras el arreglo principal (2026-10-02,
+// ~240 de 17.725 variantes): un puñado de productos donde el nombre de
+// catálogo ni siquiera aparece dentro de variant_name — "Dretius" cuyas
+// variantes dicen "Dretiu" (sin la s, error tipográfico de Makito) o
+// "Draco" cuyas variantes usan el nombre de la colección "Comet" en vez
+// del nombre de catálogo. Para esos casos, el boilerplate compartido se
+// calcula como el prefijo común de TODAS las variantes del producto (cada
+// una con su propia talla ya quitada) en vez de intentar adivinar a partir
+// del nombre del producto — "Sudadera Niño Comet Rosa" / "Sudadera Adulto
+// Comet Marino" / ... comparten "Sudadera " como prefijo común real.
+function fallbackBoilerplate(allVariants: MakitoVariant[], sizeLabelOf: (v: MakitoVariant) => string | null): string {
+  const stripped = allVariants
+    .map((v) => {
+      const name = v.variant_name ?? "";
+      const size = sizeLabelOf(v);
+      return size ? name.replace(new RegExp(`\\s*${size}\\s*$`, "i"), "") : name;
+    })
+    .filter(Boolean);
+  if (stripped.length === 0) return "";
+  return stripped.reduce((prefix, s) => commonPrefix(prefix, s));
+}
+
+export function parseColorLabel(
+  productName: string,
+  variantName: string | undefined,
+  sizeLabel: string | null,
+  fallbackPrefix?: string
+): string | null {
   if (!variantName) return null;
   // El color siempre va DESPUÉS del nombre del modelo, nunca antes — hay
   // boilerplate variable delante ("Sudadera Ad. -Keya- ", "Sudadera Adulto
@@ -111,7 +145,14 @@ export function parseColorLabel(productName: string, variantName: string | undef
   // reconocer, así que se descarta todo lo anterior al nombre en vez de
   // solo quitar la coincidencia exacta.
   const nameIdx = variantName.toLowerCase().indexOf(productName.toLowerCase());
-  let label = nameIdx !== -1 ? variantName.slice(nameIdx + productName.length) : variantName;
+  let label: string;
+  if (nameIdx !== -1) {
+    label = variantName.slice(nameIdx + productName.length);
+  } else if (fallbackPrefix && variantName.toLowerCase().startsWith(fallbackPrefix.toLowerCase())) {
+    label = variantName.slice(fallbackPrefix.length);
+  } else {
+    label = variantName;
+  }
   if (sizeLabel) {
     label = label.replace(new RegExp(`\\s*${sizeLabel}\\s*$`, "i"), "");
   }
@@ -251,10 +292,11 @@ async function main() {
     });
 
     const variants = p.variants && p.variants.length > 0 ? p.variants : [{ variant_reference: p.ref } as MakitoVariant];
+    const fallbackPrefix = fallbackBoilerplate(variants, sizeLabelFor);
     for (const v of variants) {
       const materialCode = makitoMaterialCode(p.ref, v);
-      const sizeLabel = sizeLabelFor(p, variants, v);
-      const colorLabel = parseColorLabel(p.name, v.variant_name, sizeLabel);
+      const sizeLabel = sizeLabelFor(v);
+      const colorLabel = parseColorLabel(p.name, v.variant_name, sizeLabel, fallbackPrefix);
       await prisma.productVariant.upsert({
         where: { supplierModelCode: materialCode },
         update: {
