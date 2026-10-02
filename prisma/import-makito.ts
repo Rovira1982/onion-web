@@ -62,8 +62,62 @@ type MakitoProduct = {
   printcode?: string;
   categories?: string[];
   image?: string;
+  // CSV ordenado de las tallas reales del producto, p.ej. "S,M,L,XL,XXL,3XL"
+  // — ver sizeLabelFor() más abajo, es la única forma fiable de traducir el
+  // código numérico de variant_size a una talla legible.
+  sizes?: string;
   variants?: MakitoVariant[];
 };
+
+// variant_size es un código numérico interno de Makito (ej. "102"-"107"),
+// no la talla real — bug real encontrado por Josep, 2026-10-02 (producto
+// SWC280/outlet Keya): la web solo guardaba "Talla única" porque el
+// `size` del variante nunca se rellenaba, y la talla real se quedaba
+// enterrada sin separar dentro del campo `color` (ver parseColorLabel).
+// Los códigos no tienen una tabla fija documentada, pero SÍ ordenan en el
+// mismo orden que la lista `sizes` del producto (confirmado en directo:
+// SWC280 trae sizes="S,M,L,XL,XXL,3XL" y variant_size únicos
+// 102,103,104,105,106,107, en ese mismo orden) — así que se resuelven
+// emparejando los códigos únicos del producto, ordenados, con esa lista,
+// en vez de adivinar una tabla global que podría no aplicar a todos los
+// productos (zapatos, talla única, etc).
+export function sizeLabelFor(product: MakitoProduct, allVariants: MakitoVariant[], variant: MakitoVariant): string | null {
+  if (!variant.variant_size) return null;
+  const sizesList = (product.sizes ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (sizesList.length === 0) return null;
+  const distinctCodes = [...new Set(allVariants.map((v) => v.variant_size).filter((s): s is string => s != null))].sort(
+    (a, b) => Number(a) - Number(b)
+  );
+  const idx = distinctCodes.indexOf(variant.variant_size);
+  if (idx === -1 || idx >= sizesList.length) return null;
+  return sizesList[idx];
+}
+
+// variant_name trae el nombre completo descriptivo ("Sudadera Ad. -Keya-
+// Swc280 Negro S") — el color real es lo que queda tras quitar el nombre
+// del producto Y la talla. El intento anterior solo quitaba el nombre del
+// producto con un .replace() sensible a mayúsculas (p.name="SWC280" nunca
+// coincidía con el "Swc280" real dentro de variant_name), así que no
+// quitaba nada y el campo `color` acababa con el texto entero sin tocar,
+// talla incluida — de ahí que la web nunca viera una talla real.
+export function parseColorLabel(productName: string, variantName: string | undefined, sizeLabel: string | null): string | null {
+  if (!variantName) return null;
+  // El color siempre va DESPUÉS del nombre del modelo, nunca antes — hay
+  // boilerplate variable delante ("Sudadera Ad. -Keya- ", "Sudadera Adulto
+  // Keya ", etc. según el producto) que no tiene sentido intentar
+  // reconocer, así que se descarta todo lo anterior al nombre en vez de
+  // solo quitar la coincidencia exacta.
+  const nameIdx = variantName.toLowerCase().indexOf(productName.toLowerCase());
+  let label = nameIdx !== -1 ? variantName.slice(nameIdx + productName.length) : variantName;
+  if (sizeLabel) {
+    label = label.replace(new RegExp(`\\s*${sizeLabel}\\s*$`, "i"), "");
+  }
+  label = label.replace(/\s+/g, " ").trim();
+  return label || null;
+}
 
 type MakitoPriceRow = { material: string; currency: string; baseQuantity: string; scales: { quantity: string; amount: string }[] };
 
@@ -199,10 +253,13 @@ async function main() {
     const variants = p.variants && p.variants.length > 0 ? p.variants : [{ variant_reference: p.ref } as MakitoVariant];
     for (const v of variants) {
       const materialCode = makitoMaterialCode(p.ref, v);
+      const sizeLabel = sizeLabelFor(p, variants, v);
+      const colorLabel = parseColorLabel(p.name, v.variant_name, sizeLabel);
       await prisma.productVariant.upsert({
         where: { supplierModelCode: materialCode },
         update: {
-          color: v.variant_name?.replace(p.name, "").trim() || null,
+          color: colorLabel,
+          size: sizeLabel,
           price: basePrice,
           costUnit: realUnitCost,
           productId: product.id,
@@ -210,7 +267,8 @@ async function main() {
         },
         create: {
           productId: product.id,
-          color: v.variant_name?.replace(p.name, "").trim() || null,
+          color: colorLabel,
+          size: sizeLabel,
           price: basePrice,
           costUnit: realUnitCost,
           stock: 0,
