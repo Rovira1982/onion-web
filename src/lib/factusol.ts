@@ -3,9 +3,12 @@ import ExcelJS from "exceljs";
 import { prisma } from "./db";
 import type { OrderDetail } from "./orders";
 
-// Generates the 3 files FactuSol needs to import a web order as a "Pedido de
+// Generates the files FactuSol needs to import web orders as "Pedido de
 // cliente": CLI.xlsx (customer), PCL.xlsx (order header), LPC.xlsx (order
-// lines).
+// lines) — either for one order (buildCliente/buildPedido/buildLineas, used
+// by the per-order "Descargar ZIP" button) or for every not-yet-exported
+// order at once (buildClientesBulk/buildPedidosBulk/buildLineasBulk, used
+// by the "Exportar pedidos nuevos" button on /admin/pedidos).
 //
 // Column positions below come from E:\onion\26\finanzas\factusol-import\pedido_prueba\
 // (CLI/PCL/LPC.xlsx) — Finanzas' own hand-corrected files for a real test
@@ -21,11 +24,11 @@ import type { OrderDetail } from "./orders";
 // - Client code (CLI col. A, PCL col. G): follows Josep's real FactuSol
 //   numbering (confirmed 2026-10-02 via Finanzas — his highest existing
 //   code is 181), not a hash. See resolveFactusolClientCode() below.
-// - Document type/number (PCL & LPC col. A/B): hash-derived from the order
-//   id, so re-exporting the same order is idempotent instead of creating a
-//   duplicate under a new number. FactuSol's own numbering series (Tipo de
-//   documento) is configured per-installation — confirm which "tipo" value
-//   (currently defaulted to 1) matches your setup.
+// - Document number (PCL & LPC col. B): correlativo desde 1 (Josep,
+//   2026-10-02 — su FactuSol no tiene ningún pedido de cliente creado
+//   todavía, así que no hace falta seguir ninguna numeración existente).
+//   Asignado la primera vez que el pedido se exporta (individual o en
+//   bloque) y conservado después — ver resolveFactusolDocNumber().
 // - Forma de pago (PCL col. BL): "TAR"/"BIZ"/"TRA" — matches the reference
 //   file's "TAR" for a card order; confirm these exist in FactuSol's
 //   Formas de pago (FPA) table for BIZ/TRA too.
@@ -47,15 +50,6 @@ import type { OrderDetail } from "./orders";
 // - IVA: every line/order is treated as a single 21% tier (tipo 1). We
 //   don't currently support mixed VAT rates within one order.
 
-function hashToCode(input: string, digits: number): string {
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
-  }
-  const max = 10 ** digits;
-  return String(100 + (hash % (max - 100))).padStart(digits, "0");
-}
-
 function formatDate(d: Date): string {
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -68,10 +62,6 @@ const PAYMENT_CODE: Record<string, string> = { tarjeta: "TAR", bizum: "BIZ", tra
 // servicio puntual SRV-PORTES (Finanzas, 2026-10-02).
 const SHIPPING_ARTICLE = "SRV-PORTES";
 
-function docNumberFor(orderId: string): string {
-  return hashToCode(orderId, 6);
-}
-
 // Último código real confirmado por Josep (2026-10-02): 181 — el contador
 // no vive en una fila aparte, se deriva del máximo ya guardado (o 181 si la
 // tabla está vacía) para no arrastrar un contador que se desincronice.
@@ -80,10 +70,11 @@ const LAST_KNOWN_FACTUSOL_CODE = 181;
 // Resuelve el código de cliente de FactuSol para un NIF: reutiliza el que
 // ya tuviera asignado (asignado automáticamente en un pedido anterior, o
 // corregido a mano por Josep desde la página del pedido), o asigna el
-// siguiente libre y lo guarda. `isNew` indica si FactuSol necesita el
-// CLI.xlsx (cliente nunca visto antes) o no (ya existe, reusar el código
-// basta — reimportar su CLI no aporta nada y FactuSol lo trataría como
-// una actualización de un cliente que no ha cambiado).
+// siguiente libre y lo guarda. `isNew` indica si este NIF no tenía código
+// hasta ahora mismo — el llamador decide si eso basta para incluir
+// CLI.xlsx, o si fuerza incluirlo igualmente (interruptor "Incluir CLI.xlsx
+// aunque el cliente ya tenga código", Finanzas 2026-10-02: Josep puede
+// borrar un cliente de prueba en FactuSol sin que la web se entere).
 export async function resolveFactusolClientCode(nif: string): Promise<{ code: number; isNew: boolean }> {
   const existing = await prisma.factusolClient.findUnique({ where: { nif } });
   if (existing) return { code: existing.code, isNew: false };
@@ -115,6 +106,38 @@ export async function setFactusolClientCode(nif: string, code: number): Promise<
   });
 }
 
+// Número de documento correlativo desde 1 — asignado la primera vez que el
+// pedido se exporta (individual o en bloque), conservado en Order
+// (factusolDocNumber) a partir de entonces. NO marca el pedido como
+// exportado por sí solo (ver markOrdersExported) — se puede asignar un
+// número y seguir sin "exportar" de verdad si algo falla a medio camino.
+export async function resolveFactusolDocNumber(orderId: string): Promise<number> {
+  const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, select: { factusolDocNumber: true } });
+  if (order.factusolDocNumber != null) return order.factusolDocNumber;
+
+  const highest = await prisma.order.aggregate({ _max: { factusolDocNumber: true } });
+  const nextNumber = (highest._max.factusolDocNumber ?? 0) + 1;
+  await prisma.order.update({ where: { id: orderId }, data: { factusolDocNumber: nextNumber } });
+  return nextNumber;
+}
+
+// Pedidos todavía no exportados a FactuSol — entran todos, pagados o no
+// (Finanzas, 2026-10-02: incluso los de transferencia sin cobrar todavía,
+// para no retrasar la preparación del documento).
+export async function listUnexportedOrderIds(): Promise<string[]> {
+  const orders = await prisma.order.findMany({
+    where: { factusolExportedAt: null },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return orders.map((o) => o.id);
+}
+
+export async function markOrdersExported(orderIds: string[]): Promise<void> {
+  if (orderIds.length === 0) return;
+  await prisma.order.updateMany({ where: { id: { in: orderIds } }, data: { factusolExportedAt: new Date() } });
+}
+
 // Escribe una fila por letra de columna en vez de por posición consecutiva
 // — el layout real de FactuSol tiene huecos grandes entre columnas (ver
 // PCL/LPC más abajo), así que un array posicional sin más se desalinea en
@@ -125,10 +148,52 @@ function writeRowByColumn(ws: ExcelJS.Worksheet, rowNumber: number, values: Reco
   }
 }
 
-async function newWorkbook(): Promise<ExcelJS.Worksheet> {
+function newWorkbook(): ExcelJS.Worksheet {
   const wb = new ExcelJS.Workbook();
   return wb.addWorksheet("Hoja1");
 }
+
+function sheetFrom(headers: Record<string, string>, rows: Record<string, string | number>[]): Promise<ExcelJS.Buffer> {
+  const ws = newWorkbook();
+  writeRowByColumn(ws, 1, headers);
+  rows.forEach((row, i) => writeRowByColumn(ws, i + 2, row));
+  return ws.workbook.xlsx.writeBuffer();
+}
+
+type ClienteSource = {
+  invoiceTaxId: string;
+  invoiceName: string;
+  invoiceAddress: string;
+  invoiceCity: string;
+  invoicePostalCode: string;
+  invoiceProvince: string;
+  contactPhone: string | null;
+  contactEmail: string;
+};
+
+type PedidoSource = {
+  id: string;
+  createdAt: Date;
+  total: number;
+  paymentMethod: string;
+  invoiceName: string;
+  invoiceAddress: string;
+  invoiceCity: string;
+  invoicePostalCode: string;
+  invoiceProvince: string;
+  invoiceTaxId: string;
+  contactPhone: string | null;
+};
+
+type LineaSource = {
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  factusolArticleCode: string | null;
+  supplierSku: string | null;
+  size: string;
+  color: string;
+};
 
 // --- CLI.xlsx — Clientes ----------------------------------------------------
 const CLI_HEADERS: Record<string, string> = {
@@ -143,23 +208,11 @@ const CLI_HEADERS: Record<string, string> = {
   I: "Provincia",
   J: "País",
   K: "Teléfono",
+  AP: "E-mail",
 };
 
-export async function buildCliente(
-  order: {
-    invoiceTaxId: string;
-    invoiceName: string;
-    invoiceAddress: string;
-    invoiceCity: string;
-    invoicePostalCode: string;
-    invoiceProvince: string;
-    contactPhone: string | null;
-  },
-  clientCode: number
-): Promise<ExcelJS.Buffer> {
-  const ws = await newWorkbook();
-  writeRowByColumn(ws, 1, CLI_HEADERS);
-  writeRowByColumn(ws, 2, {
+function clienteRow(order: ClienteSource, clientCode: number): Record<string, string | number> {
+  return {
     A: clientCode,
     C: order.invoiceTaxId,
     D: order.invoiceName,
@@ -170,8 +223,19 @@ export async function buildCliente(
     I: order.invoiceProvince,
     J: "España",
     K: order.contactPhone ?? "",
-  });
-  return ws.workbook.xlsx.writeBuffer();
+    AP: order.contactEmail,
+  };
+}
+
+export function buildCliente(order: ClienteSource, clientCode: number): Promise<ExcelJS.Buffer> {
+  return sheetFrom(CLI_HEADERS, [clienteRow(order, clientCode)]);
+}
+
+export function buildClientesBulk(rows: { order: ClienteSource; clientCode: number }[]): Promise<ExcelJS.Buffer> {
+  return sheetFrom(
+    CLI_HEADERS,
+    rows.map(({ order, clientCode }) => clienteRow(order, clientCode))
+  );
 }
 
 // --- PCL.xlsx — Pedido de cliente (cabecera) --------------------------------
@@ -200,24 +264,10 @@ const PCL_HEADERS: Record<string, string> = {
   BS: "Pedido por",
 };
 
-export async function buildPedido(
-  order: OrderDetail & {
-    invoiceTaxId: string;
-    invoiceName: string;
-    invoiceAddress: string;
-    invoiceCity: string;
-    invoicePostalCode: string;
-    invoiceProvince: string;
-  },
-  clientCode: number
-): Promise<ExcelJS.Buffer> {
-  const ws = await newWorkbook();
-  const docNumber = Number(docNumberFor(order.id));
+function pedidoRow(order: PedidoSource, clientCode: number, docNumber: number): Record<string, string | number> {
   const subtotal = Math.round((order.total / 1.21) * 100) / 100;
   const vatAmount = Math.round((order.total - subtotal) * 100) / 100;
-
-  writeRowByColumn(ws, 1, PCL_HEADERS);
-  writeRowByColumn(ws, 2, {
+  return {
     A: 1,
     B: docNumber,
     C: order.id.slice(0, 8),
@@ -240,8 +290,20 @@ export async function buildPedido(
     BK: order.total,
     BL: PAYMENT_CODE[order.paymentMethod] ?? "",
     BS: "Web",
-  });
-  return ws.workbook.xlsx.writeBuffer();
+  };
+}
+
+export function buildPedido(order: PedidoSource, clientCode: number, docNumber: number): Promise<ExcelJS.Buffer> {
+  return sheetFrom(PCL_HEADERS, [pedidoRow(order, clientCode, docNumber)]);
+}
+
+export function buildPedidosBulk(
+  rows: { order: PedidoSource; clientCode: number; docNumber: number }[]
+): Promise<ExcelJS.Buffer> {
+  return sheetFrom(
+    PCL_HEADERS,
+    rows.map(({ order, clientCode, docNumber }) => pedidoRow(order, clientCode, docNumber))
+  );
 }
 
 // --- LPC.xlsx — Líneas de pedido de cliente ---------------------------------
@@ -258,27 +320,17 @@ const LPC_HEADERS: Record<string, string> = {
   M: "Tipo de IVA",
 };
 
-export async function buildLineas(
-  order: { id: string; shippingCost?: number },
-  lines: {
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-    factusolArticleCode: string | null;
-    supplierSku: string | null;
-    size: string;
-    color: string;
-  }[]
-): Promise<ExcelJS.Buffer> {
-  const ws = await newWorkbook();
-  const docNumber = Number(docNumberFor(order.id));
-  writeRowByColumn(ws, 1, LPC_HEADERS);
-
-  let row = 2;
-  lines.forEach((line, i) => {
+// La posición (col. C) reinicia en 1 por cada pedido/documento — son líneas
+// dentro de SU documento, no un correlativo global.
+function lineaRows(
+  docNumber: number,
+  lines: LineaSource[],
+  shippingCost: number | undefined
+): Record<string, string | number>[] {
+  const rows = lines.map((line, i) => {
     const total = Math.round(line.unitPrice * line.quantity * 100) / 100;
     const description = [line.productName, line.size, line.color].filter(Boolean).join(" ");
-    writeRowByColumn(ws, row++, {
+    return {
       A: 1,
       B: docNumber,
       C: i + 1,
@@ -289,23 +341,38 @@ export async function buildLineas(
       K: total,
       L: line.quantity,
       M: 0,
-    });
+    };
   });
-
-  if (order.shippingCost) {
-    writeRowByColumn(ws, row++, {
+  if (shippingCost) {
+    rows.push({
       A: 1,
       B: docNumber,
       C: lines.length + 1,
       D: SHIPPING_ARTICLE,
       E: "Gastos de envío",
       F: 1,
-      J: order.shippingCost,
-      K: order.shippingCost,
+      J: shippingCost,
+      K: shippingCost,
       L: 1,
       M: 0,
     });
   }
-
-  return ws.workbook.xlsx.writeBuffer();
+  return rows;
 }
+
+export function buildLineas(
+  order: { shippingCost?: number },
+  lines: LineaSource[],
+  docNumber: number
+): Promise<ExcelJS.Buffer> {
+  return sheetFrom(LPC_HEADERS, lineaRows(docNumber, lines, order.shippingCost));
+}
+
+export function buildLineasBulk(
+  rows: { docNumber: number; shippingCost?: number; lines: LineaSource[] }[]
+): Promise<ExcelJS.Buffer> {
+  const allRows = rows.flatMap(({ docNumber, shippingCost, lines }) => lineaRows(docNumber, lines, shippingCost));
+  return sheetFrom(LPC_HEADERS, allRows);
+}
+
+export type { OrderDetail };

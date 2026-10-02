@@ -240,6 +240,17 @@ model Order {
   shippingCost       Decimal       @default(0) @db.Decimal(10, 2)
   createdAt          DateTime      @default(now())
   lines              OrderLine[]
+  // Número de documento de FactuSol (PCL/LPC col. B) — correlativo desde 1,
+  // asignado la primera vez que se exporta (individual o en bloque) y
+  // conservado después (Josep/Finanzas, 2026-10-02: su FactuSol no tiene
+  // ningún pedido de cliente creado todavía, así que no hace falta que
+  // coincida con nada existente, solo que no se repita ni cambie).
+  factusolDocNumber  Int?          @unique
+  // Se rellena la primera vez que el pedido se incluye en un ZIP de
+  // FactuSol (descarga individual o el botón de exportación en bloque) —
+  // el export en bloque solo coge pedidos con esto a null, para no
+  // duplicar un pedido ya mandado a FactuSol.
+  factusolExportedAt DateTime?
 
   @@index([status, priority])
   @@map("orders")

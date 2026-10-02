@@ -125,12 +125,18 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
         <p className="font-display text-lg font-bold text-ink">Total: {money(order.total)}</p>
       </div>
 
-      <Link
-        href={`/admin/pedidos/${order.id}/factusol`}
-        className="mt-6 inline-block cursor-pointer font-display text-sm font-bold text-brand hover:text-brand-dark"
-      >
-        Descargar ZIP para FactuSol →
-      </Link>
+      <form action={`/admin/pedidos/${order.id}/factusol`} method="get" className="mt-6 flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          className="cursor-pointer font-display text-sm font-bold text-brand hover:text-brand-dark"
+        >
+          Descargar ZIP para FactuSol →
+        </button>
+        <label className="flex items-center gap-1.5 text-xs text-ink-soft">
+          <input type="checkbox" name="forceCli" value="1" className="cursor-pointer" />
+          Incluir CLI.xlsx aunque el cliente ya tenga código
+        </label>
+      </form>
     </div>
   );
 }

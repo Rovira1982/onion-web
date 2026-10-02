@@ -50,6 +50,7 @@ export type OrderSummary = {
   createdAt: Date;
   lineCount: number;
   discountCode: string | null;
+  factusolExported: boolean;
 };
 
 // Minimal listing for the admin panel — just enough to find an order,
@@ -69,6 +70,7 @@ export async function listOrders(): Promise<OrderSummary[]> {
     createdAt: o.createdAt,
     lineCount: o._count.lines,
     discountCode: o.discountCode?.code ?? null,
+    factusolExported: o.factusolExportedAt != null,
   }));
 }
 

@@ -11,10 +11,26 @@ function money(n: number) {
 export default async function AdminPedidosPage() {
   await requireAdmin();
   const orders = await listOrders();
+  const pendingCount = orders.filter((o) => !o.factusolExported).length;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold text-ink">Pedidos</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-ink">Pedidos</h1>
+        <form action="/admin/pedidos/exportar" method="get" className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            disabled={pendingCount === 0}
+            className="cursor-pointer rounded-full bg-brand px-5 py-2.5 font-display text-sm font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Exportar pedidos nuevos ({pendingCount})
+          </button>
+          <label className="flex items-center gap-1.5 text-xs text-ink-soft">
+            <input type="checkbox" name="forceCli" value="1" className="cursor-pointer" />
+            Incluir CLI.xlsx aunque el cliente ya tenga código
+          </label>
+        </form>
+      </div>
 
       {orders.length === 0 ? (
         <p className="mt-8 text-ink-soft">Todavía no hay pedidos.</p>
@@ -59,6 +75,7 @@ export default async function AdminPedidosPage() {
                   >
                     Descargar ZIP
                   </a>
+                  {o.factusolExported && <span className="ml-2 text-xs text-ink-soft">(exportado)</span>}
                 </td>
               </tr>
             ))}
