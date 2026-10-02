@@ -45,6 +45,8 @@ Algunos de estos proveedores pueden alojar datos fuera del Espacio Económico Eu
 
 Los datos de pedidos se conservan durante el tiempo exigido por la normativa fiscal y mercantil (con carácter general, 6 años). Los archivos de diseño subidos se conservan mientras sean necesarios para producir el pedido y, salvo que solicites lo contrario, no más de 6 meses tras la entrega.
 
+Si vuelves a pedirnos un trabajo con el mismo diseño, podemos conservar tu logo más allá de ese plazo para agilizar futuros pedidos tuyos. Puedes pedirnos en cualquier momento que lo eliminemos, igual que el resto de tus datos (ver sección 6).
+
 ## 6. Tus derechos
 
 Puedes ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación del tratamiento y portabilidad escribiendo a info@onionandback.com, indicando el derecho que deseas ejercer y adjuntando copia de un documento que acredite tu identidad. También puedes reclamar ante la Agencia Española de Protección de Datos (www.aepd.es) si consideras que no se ha atendido correctamente tu solicitud.

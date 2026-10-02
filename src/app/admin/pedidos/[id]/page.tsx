@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getOrderById } from "@/lib/orders";
 import { requireAdmin } from "@/lib/auth";
 import MarcarPagadoButton from "./MarcarPagadoButton";
+import ArchivarDisenoButton from "./ArchivarDisenoButton";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -84,7 +85,14 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
           <tbody>
             {order.lines.map((line) => (
               <tr key={line.id} className="border-b border-border">
-                <td className="px-4 py-2 text-ink">{line.productName}</td>
+                <td className="px-4 py-2 text-ink">
+                  {line.productName}
+                  {line.previewImageUrl && (
+                    <div className="mt-1">
+                      <ArchivarDisenoButton orderLineId={line.id} />
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-2 text-ink-soft">{[line.size, line.color].filter(Boolean).join(" · ") || "—"}</td>
                 <td className="px-4 py-2 text-ink-soft">{line.priceTier ?? "—"}</td>
                 <td className="px-4 py-2 text-ink">{line.quantity}</td>

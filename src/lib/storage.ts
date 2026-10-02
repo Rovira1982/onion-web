@@ -1,5 +1,5 @@
 import "server-only";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 // Cloudflare R2 — S3-compatible object storage for customer-uploaded logos.
 // Bucket is private (no public access); files are served back through
@@ -33,4 +33,22 @@ export async function getFile(key: string): Promise<{ body: ReadableStream; cont
   } catch {
     return null;
   }
+}
+
+// Copia un logo ya subido a un prefijo sin caducidad, para reutilizarlo en
+// futuros pedidos del mismo cliente — acción deliberada de un admin, nunca
+// automática. El original en logos/ sigue su ciclo de vida normal (borrado
+// por la regla de lifecycle de R2 a los 180 días, configurada aparte por
+// Josep directamente en el panel de Cloudflare). Feature P8, 2026-10-02.
+export async function archiveFile(key: string): Promise<string> {
+  if (!key.startsWith("logos/")) throw new Error("Solo se pueden archivar logos de cliente.");
+  const archivedKey = key.replace(/^logos\//, "logos-archivo/");
+  await client.send(
+    new CopyObjectCommand({
+      Bucket: BUCKET,
+      CopySource: `${BUCKET}/${key}`,
+      Key: archivedKey,
+    })
+  );
+  return archivedKey;
 }
