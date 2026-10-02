@@ -18,7 +18,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth-constants";
 import { verifySessionSignature } from "@/lib/session-token";
-import { isLaunched, LAUNCH_BYPASS_COOKIE, LAUNCH_BYPASS_QUERY_PARAM } from "@/lib/launch";
+import {
+  bypassCookieValue,
+  constantTimeEquals,
+  isLaunched,
+  LAUNCH_BYPASS_COOKIE,
+  LAUNCH_BYPASS_QUERY_PARAM,
+} from "@/lib/launch";
 
 export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/admin/login")) {
@@ -42,20 +48,31 @@ export function proxy(request: NextRequest) {
   }
 
   const previewToken = process.env.LAUNCH_BYPASS_TOKEN;
-  const hasBypassCookie = request.cookies.get(LAUNCH_BYPASS_COOKIE)?.value === "1";
-  const queryMatchesToken =
-    !!previewToken && request.nextUrl.searchParams.get(LAUNCH_BYPASS_QUERY_PARAM) === previewToken;
+  if (previewToken) {
+    const cookieValue = request.cookies.get(LAUNCH_BYPASS_COOKIE)?.value;
+    if (cookieValue && constantTimeEquals(cookieValue, bypassCookieValue(previewToken))) {
+      return NextResponse.next();
+    }
 
-  if (hasBypassCookie || queryMatchesToken) {
-    const response = NextResponse.next();
-    if (queryMatchesToken && !hasBypassCookie) {
-      response.cookies.set(LAUNCH_BYPASS_COOKIE, "1", {
+    const queryToken = request.nextUrl.searchParams.get(LAUNCH_BYPASS_QUERY_PARAM);
+    if (queryToken && constantTimeEquals(queryToken, previewToken)) {
+      // Cookie + redirección a la misma URL SIN el parámetro: el token no
+      // se queda en la barra de direcciones, el historial, ni en el
+      // Referer de lo que se cargue después (Guardian, 2026-10-02).
+      const cleanUrl = request.nextUrl.clone();
+      cleanUrl.searchParams.delete(LAUNCH_BYPASS_QUERY_PARAM);
+      const response = NextResponse.redirect(cleanUrl);
+      response.cookies.set(LAUNCH_BYPASS_COOKIE, bypassCookieValue(previewToken), {
         httpOnly: true,
         sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
         maxAge: 60 * 60 * 24 * 60, // 60 días — más que de sobra para toda la cuenta atrás
       });
+      response.headers.set("Referrer-Policy", "no-referrer");
+      response.headers.set("Cache-Control", "no-store");
+      return response;
     }
-    return response;
   }
 
   // Cabecera para que el layout raíz sepa que esto es la pantalla de

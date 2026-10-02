@@ -8,6 +8,8 @@
 // con un valor que no se puede parsear, el sitio se considera ABIERTO
 // (fail-open a propósito: nunca debe quedar la web bloqueada por accidente
 // solo porque alguien olvidó poner la variable).
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+
 export function isLaunched(): boolean {
   return launchDate() === null || Date.now() >= launchDate()!.getTime();
 }
@@ -25,3 +27,18 @@ export function launchDate(): Date | null {
 // en el sitemap.
 export const LAUNCH_BYPASS_COOKIE = "oab_launch_bypass";
 export const LAUNCH_BYPASS_QUERY_PARAM = "preview";
+
+// Guardian, 2026-10-02: la cookie valía literalmente "1" (falsificable sin
+// conocer el token) y el token se comparaba con ===. Ahora la cookie lleva
+// un HMAC derivado del token (inviable de falsificar, y rotar el token
+// invalida todas las cookies emitidas) y ambas comparaciones son de tiempo
+// constante (se hashean a longitud fija para no filtrar la longitud).
+export function bypassCookieValue(token: string): string {
+  return createHmac("sha256", token).update("oab-launch-bypass-v1").digest("hex");
+}
+
+export function constantTimeEquals(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
