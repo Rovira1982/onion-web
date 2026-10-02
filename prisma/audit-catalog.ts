@@ -10,7 +10,7 @@
 // Run with: npx tsx prisma/audit-catalog.ts [--fix] [--out=ruta.md]
 import { config } from "dotenv";
 config({ path: ".env.local" });
-import { writeFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma";
 
@@ -18,7 +18,8 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 const FIX = process.argv.includes("--fix");
-const NO_DELETE = process.argv.includes("--no-delete"); // con --fix: solo actualiza, no borra filas
+const DELETE_LOG = `audit-catalog-deleted-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`;
+const NO_DELETE =process.argv.includes("--no-delete"); // con --fix: solo actualiza, no borra filas
 const OUT = process.argv.find((a) => a.startsWith("--out="))?.split("=")[1];
 const PAGE = 300;
 const EXAMPLES_PER_CASE = 4;
@@ -236,9 +237,13 @@ async function auditProduct(p: AuditProduct) {
   if (dupIds.length) {
     flag("c3", sup, "foto con la misma URL repetida", `${label} (${dupIds.length} repetidas)`);
     if (FIX && !NO_DELETE) {
+      // Registro ANTES de borrar (fila completa) para poder restaurar.
+      const gone = new Set(dupIds);
+      for (const row of p.images.filter((i) => gone.has(i.id))) {
+        appendFileSync(DELETE_LOG, JSON.stringify({ productId: p.id, row }) + "\n");
+      }
       await prisma.productImage.deleteMany({ where: { id: { in: dupIds } } });
       markFixed("c3", "fotos repetidas borradas", dupIds.length);
-      const gone = new Set(dupIds);
       p.images = p.images.filter((i) => !gone.has(i.id));
     }
   }
