@@ -64,8 +64,14 @@ function makeGetToken(env: "test" | "prod") {
   };
 }
 
-type MakitoVariant = { variant_reference: string; variant_colorcode?: string; variant_size?: string };
-type MakitoProduct = { ref: string; image?: string; variants?: MakitoVariant[] };
+type MakitoVariant = {
+  variant_reference: string;
+  variant_name?: string;
+  variant_image?: string;
+  variant_colorcode?: string;
+  variant_size?: string;
+};
+type MakitoProduct = { ref: string; name: string; image?: string; variants?: MakitoVariant[] };
 type MakitoStockRow = { material: string; quantity: number };
 
 const EXT_TO_CONTENT_TYPE: Record<string, string> = {
@@ -128,6 +134,15 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function slugifyColor(input: string) {
+  return input
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 async function main() {
   const { limit, env, delayMs } = parseArgs();
   console.log(
@@ -154,14 +169,18 @@ async function main() {
     process.exit(1);
   }
 
-  // Ya activados (tienen foto) — se saltan, para que una re-ejecución
-  // reanude donde lo dejó en vez de volver a descargar todo.
+  // Ya con fotos POR COLOR — se saltan. Un producto que solo tenga la foto
+  // genérica (de una ejecución anterior a que esta función supiera de
+  // colores) SÍ se reprocesa, para completarle las fotos por color; la
+  // escritura de la foto principal y la activación de stock usan upsert /
+  // updateMany, así que repetirlas en un producto ya activado no duplica
+  // nada ni rompe nada.
   const alreadyDone = await prisma.product.findMany({
-    where: { supplierId: supplier.id, images: { some: {} } },
+    where: { supplierId: supplier.id, images: { some: { color: { not: null } } } },
     select: { supplierSku: true },
   });
   const doneSkus = new Set(alreadyDone.map((p) => p.supplierSku));
-  console.log(`Ya activados en una ejecución anterior: ${doneSkus.size}.\n`);
+  console.log(`Ya con fotos por color de una ejecución anterior: ${doneSkus.size}.\n`);
 
   const pending = catalog.products.filter((p) => !doneSkus.has(p.ref) && p.image);
   const products = limit ? pending.slice(0, limit) : pending;
@@ -193,10 +212,53 @@ async function main() {
     const variants = p.variants ?? [];
     const totalStock = variants.reduce((sum, v) => sum + (stockByMaterial.get(makitoMaterialCode(p.ref, v)) ?? 0), 0);
 
+    // Una foto por color distinto, no por variante — mismas tallas de un
+    // color comparten variant_image, descargarla varias veces solo gasta
+    // cupo de la API de Makito (100 de capacidad, 25/min de recarga) sin
+    // aportar nada nuevo. Mismo campo que ya usa la fase 1 para derivar
+    // ProductVariant.color (variant_name menos el nombre del producto).
+    const imageByColor = new Map<string, string>();
+    for (const v of variants) {
+      const color = v.variant_name?.replace(p.name, "").trim();
+      if (color && v.variant_image && !imageByColor.has(color)) {
+        imageByColor.set(color, v.variant_image);
+      }
+    }
+
+    // Las fotos por color se escriben UNA A UNA, fuera de la transacción de
+    // abajo — mismo patrón que import-toptex.ts/import-cifra.ts/etc. Bug
+    // real encontrado en directo, 2026-10-01: meterlas dentro de la misma
+    // transacción que activa el stock hacía que productos con varios
+    // colores superaran los 30s de timeout contra el proxy lento de
+    // Railway ("A rollback cannot be executed on an expired transaction").
+    // No necesitan la misma atomicidad que la activación de stock — una
+    // foto de color que falle a medias no deja el producto en mal estado,
+    // solo le faltará esa foto hasta la siguiente pasada.
+    let colorPosition = 1;
+    for (const [color, variantImageUrl] of imageByColor) {
+      const colorExt = variantImageUrl.split(".").pop() || "jpg";
+      const colorKey = `makito/${p.ref}/${slugifyColor(color)}.${colorExt}`;
+      const colorUrl = await downloadAndStore(variantImageUrl, getToken, colorKey);
+      if (colorUrl) {
+        const id = `makito-${p.ref}-${color}`;
+        await prisma.productImage.upsert({
+          where: { id },
+          update: { url: colorUrl, color },
+          create: { id, productId: dbProduct.id, url: colorUrl, position: colorPosition, color },
+        });
+        colorPosition++;
+      }
+      await sleep(delayMs);
+    }
+
     try {
       await prisma.$transaction(
         [
-          prisma.productImage.create({ data: { productId: dbProduct.id, url, position: 0 } }),
+          prisma.productImage.upsert({
+            where: { id: `makito-${p.ref}-principal` },
+            update: { url },
+            create: { id: `makito-${p.ref}-principal`, productId: dbProduct.id, url, position: 0 },
+          }),
           prisma.product.update({ where: { id: dbProduct.id }, data: { stock: totalStock } }),
           ...variants.map((v) =>
             prisma.productVariant.updateMany({
