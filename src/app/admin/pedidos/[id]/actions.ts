@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { archiveFile } from "@/lib/storage";
+import { setFactusolClientCode } from "@/lib/factusol";
 
 // Único punto de entrada para marcar un pedido como pagado — hoy no
 // cobramos online (se manda el enlace de pago por email), así que esto es
@@ -44,4 +45,15 @@ export async function archivarDisenoDeLinea(orderLineId: string): Promise<{ ok: 
 
   const archivedKey = await archiveFile(key);
   return { ok: true, url: `/api/uploads/${archivedKey}` };
+}
+
+// Corrige/fija el código de cliente de FactuSol para el NIF de este pedido
+// — p.ej. un cliente que ya existía en FactuSol antes de la web, con un
+// código bajo como 81. Se guarda para ese NIF: afecta a todos sus pedidos,
+// no solo al que se está viendo. Finanzas, 2026-10-02.
+export async function actualizarCodigoFactusol(nif: string, code: number): Promise<{ ok: true } | { error: string }> {
+  await requireAdmin();
+  if (!Number.isInteger(code) || code <= 0) return { error: "El código debe ser un número entero positivo." };
+  await setFactusolClientCode(nif, code);
+  return { ok: true };
 }

@@ -381,3 +381,22 @@ model DiscountCode {
 
   @@map("discount_codes")
 }
+
+// Código de cliente de FACTUSOL por NIF — FACTUSOL necesita un código
+// numérico de cliente que siga SU numeración real, no uno inventado (un
+// hash podía colisionar con un cliente que Josep ya tuviera dado de alta a
+// mano). Último código real confirmado por Josep, 2026-10-02: 181, así que
+// el siguiente cliente nuevo de la web empieza en 182 y sube de uno en uno
+// (ver nextFactusolClientCode() en src/lib/factusol.ts). Josep puede
+// corregir el código de un NIF concreto desde la página del pedido en el
+// admin (p.ej. un cliente que ya existía en FACTUSOL antes de la web, con
+// un código bajo como 81) — esa corrección se guarda aquí y se reutiliza en
+// todos los pedidos futuros de ese mismo NIF, no solo el que se está
+// editando.
+model FactusolClient {
+  nif       String   @id
+  code      Int      @unique
+  createdAt DateTime @default(now())
+
+  @@map("factusol_clients")
+}

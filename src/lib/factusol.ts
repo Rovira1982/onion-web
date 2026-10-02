@@ -1,5 +1,6 @@
 import "server-only";
 import ExcelJS from "exceljs";
+import { prisma } from "./db";
 import type { OrderDetail } from "./orders";
 
 // Generates the 3 files FactuSol needs to import a web order as a "Pedido de
@@ -17,12 +18,9 @@ import type { OrderDetail } from "./orders";
 // 2026-10-02, via Operaciones.
 //
 // Open assumptions, flagged for review rather than guessed silently:
-// - Client code (CLI col. A, PCL col. G): Finanzas is clarifying the real
-//   FactuSol client numbering with Josep directly (2026-10-02) — until
-//   that's settled, this keeps the previous hash-of-NIF placeholder
-//   (6-digit, same NIF -> same code). Do not change without Finanzas'
-//   go-ahead; the real code may need to follow FactuSol's own series
-//   instead of being derived here.
+// - Client code (CLI col. A, PCL col. G): follows Josep's real FactuSol
+//   numbering (confirmed 2026-10-02 via Finanzas — his highest existing
+//   code is 181), not a hash. See resolveFactusolClientCode() below.
 // - Document type/number (PCL & LPC col. A/B): hash-derived from the order
 //   id, so re-exporting the same order is idempotent instead of creating a
 //   duplicate under a new number. FactuSol's own numbering series (Tipo de
@@ -70,12 +68,51 @@ const PAYMENT_CODE: Record<string, string> = { tarjeta: "TAR", bizum: "BIZ", tra
 // servicio puntual SRV-PORTES (Finanzas, 2026-10-02).
 const SHIPPING_ARTICLE = "SRV-PORTES";
 
-export function clientCodeFor(order: OrderDetail & { invoiceTaxId: string }): string {
-  return hashToCode(order.invoiceTaxId, 6);
-}
-
 function docNumberFor(orderId: string): string {
   return hashToCode(orderId, 6);
+}
+
+// Último código real confirmado por Josep (2026-10-02): 181 — el contador
+// no vive en una fila aparte, se deriva del máximo ya guardado (o 181 si la
+// tabla está vacía) para no arrastrar un contador que se desincronice.
+const LAST_KNOWN_FACTUSOL_CODE = 181;
+
+// Resuelve el código de cliente de FactuSol para un NIF: reutiliza el que
+// ya tuviera asignado (asignado automáticamente en un pedido anterior, o
+// corregido a mano por Josep desde la página del pedido), o asigna el
+// siguiente libre y lo guarda. `isNew` indica si FactuSol necesita el
+// CLI.xlsx (cliente nunca visto antes) o no (ya existe, reusar el código
+// basta — reimportar su CLI no aporta nada y FactuSol lo trataría como
+// una actualización de un cliente que no ha cambiado).
+export async function resolveFactusolClientCode(nif: string): Promise<{ code: number; isNew: boolean }> {
+  const existing = await prisma.factusolClient.findUnique({ where: { nif } });
+  if (existing) return { code: existing.code, isNew: false };
+
+  const highest = await prisma.factusolClient.aggregate({ _max: { code: true } });
+  const nextCode = Math.max(highest._max.code ?? LAST_KNOWN_FACTUSOL_CODE, LAST_KNOWN_FACTUSOL_CODE) + 1;
+  await prisma.factusolClient.create({ data: { nif, code: nextCode } });
+  return { code: nextCode, isNew: true };
+}
+
+// Solo lectura, sin efecto secundario — para mostrarlo en el admin sin
+// gastar un número de la secuencia solo por abrir la página del pedido
+// (resolveFactusolClientCode() de arriba SÍ asigna uno si no existe, pero
+// eso debe pasar únicamente al generar el ZIP de verdad).
+export async function getFactusolClientCode(nif: string): Promise<number | null> {
+  const existing = await prisma.factusolClient.findUnique({ where: { nif } });
+  return existing?.code ?? null;
+}
+
+// Permite a Josep corregir/fijar el código de un NIF concreto desde el
+// admin — p.ej. un cliente que ya existía en FactuSol con un código bajo
+// (81) antes de que existiera la web. Se guarda para ese NIF y se reutiliza
+// en todos sus pedidos futuros, no solo el que se está editando.
+export async function setFactusolClientCode(nif: string, code: number): Promise<void> {
+  await prisma.factusolClient.upsert({
+    where: { nif },
+    update: { code },
+    create: { nif, code },
+  });
 }
 
 // Escribe una fila por letra de columna en vez de por posición consecutiva
@@ -108,24 +145,22 @@ const CLI_HEADERS: Record<string, string> = {
   K: "Teléfono",
 };
 
-export async function buildCliente(order: {
-  invoiceTaxId: string;
-  invoiceName: string;
-  invoiceAddress: string;
-  invoiceCity: string;
-  invoicePostalCode: string;
-  invoiceProvince: string;
-  contactPhone: string | null;
-}): Promise<ExcelJS.Buffer> {
+export async function buildCliente(
+  order: {
+    invoiceTaxId: string;
+    invoiceName: string;
+    invoiceAddress: string;
+    invoiceCity: string;
+    invoicePostalCode: string;
+    invoiceProvince: string;
+    contactPhone: string | null;
+  },
+  clientCode: number
+): Promise<ExcelJS.Buffer> {
   const ws = await newWorkbook();
-  // Number(), no el string del hash — FactuSol espera el código de cliente
-  // como numérico (confirmado contra la referencia de Finanzas: "Código" es
-  // 45831 sin comillas, no "45831"), y así se comprobó en directo contra la
-  // web, 2026-10-02.
-  const code = Number(hashToCode(order.invoiceTaxId, 6));
   writeRowByColumn(ws, 1, CLI_HEADERS);
   writeRowByColumn(ws, 2, {
-    A: code,
+    A: clientCode,
     C: order.invoiceTaxId,
     D: order.invoiceName,
     E: order.invoiceName,
@@ -165,17 +200,18 @@ const PCL_HEADERS: Record<string, string> = {
   BS: "Pedido por",
 };
 
-export async function buildPedido(order: OrderDetail & {
-  invoiceTaxId: string;
-  invoiceName: string;
-  invoiceAddress: string;
-  invoiceCity: string;
-  invoicePostalCode: string;
-  invoiceProvince: string;
-}): Promise<ExcelJS.Buffer> {
+export async function buildPedido(
+  order: OrderDetail & {
+    invoiceTaxId: string;
+    invoiceName: string;
+    invoiceAddress: string;
+    invoiceCity: string;
+    invoicePostalCode: string;
+    invoiceProvince: string;
+  },
+  clientCode: number
+): Promise<ExcelJS.Buffer> {
   const ws = await newWorkbook();
-  // Number(), mismo motivo que en buildCliente() — col. B/G numéricas.
-  const clientCode = Number(hashToCode(order.invoiceTaxId, 6));
   const docNumber = Number(docNumberFor(order.id));
   const subtotal = Math.round((order.total / 1.21) * 100) / 100;
   const vatAmount = Math.round((order.total - subtotal) * 100) / 100;

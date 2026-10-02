@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderById } from "@/lib/orders";
 import { requireAdmin } from "@/lib/auth";
+import { getFactusolClientCode } from "@/lib/factusol";
 import MarcarPagadoButton from "./MarcarPagadoButton";
 import ArchivarDisenoButton from "./ArchivarDisenoButton";
+import CodigoFactusolField from "./CodigoFactusolField";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -14,6 +16,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
   const { id } = await params;
   const order = await getOrderById(id);
   if (!order) notFound();
+  const factusolCode = await getFactusolClientCode(order.invoiceTaxId);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
@@ -52,6 +55,12 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
         <div>
           <dt className="font-display font-semibold text-ink-soft">NIF/CIF</dt>
           <dd className="mt-1 text-ink">{order.invoiceTaxId}</dd>
+        </div>
+        <div>
+          <dt className="font-display font-semibold text-ink-soft">Código cliente FactuSol</dt>
+          <dd className="mt-1">
+            <CodigoFactusolField nif={order.invoiceTaxId} currentCode={factusolCode} />
+          </dd>
         </div>
         <div>
           <dt className="font-display font-semibold text-ink-soft">Contacto</dt>
