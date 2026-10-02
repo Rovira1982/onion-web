@@ -3,6 +3,7 @@ import Image from "next/image";
 import ProductCard from "@/components/ProductCard";
 import { getTopCategories, getFeaturedProducts, getOccasions, getOutletCount } from "@/lib/products";
 import { getActivePromotion } from "@/lib/promotions";
+import { getVisiblePacks } from "@/lib/packs";
 
 const OCCASION_CARD_STYLE = {
   lg: "sm:col-span-2 py-8 text-lg",
@@ -50,6 +51,7 @@ export default async function Home() {
   const occasions = await getOccasions();
   const outletCount = await getOutletCount();
   const ropaLaboral = occasions.find((o) => o.slug === "ropa-laboral");
+  const visiblePacks = getVisiblePacks();
 
   return (
     <>
@@ -170,6 +172,29 @@ export default async function Home() {
             </div>
             <span className="shrink-0 font-display text-sm font-bold underline underline-offset-4">
               Ver catálogo →
+            </span>
+          </Link>
+        </section>
+      )}
+
+      {/* Packs — precio cerrado para anuncios (destapado por el dueño,
+          2026-10-01), mismo nivel de protagonismo que Outlet/Ropa Laboral. */}
+      {visiblePacks.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+          <Link
+            href="/packs"
+            className="flex items-center justify-between gap-4 rounded-2xl bg-brand-dark px-6 py-5 text-white transition-colors hover:bg-brand-dark/90 sm:px-8"
+          >
+            <div>
+              <span className="font-display text-xs font-bold uppercase tracking-wide text-white/70">
+                Packs
+              </span>
+              <p className="mt-1 font-display text-lg font-bold sm:text-xl">
+                Precio cerrado con tu logo, sin sorpresas
+              </p>
+            </div>
+            <span className="shrink-0 font-display text-sm font-bold underline underline-offset-4">
+              Ver packs →
             </span>
           </Link>
         </section>

@@ -104,13 +104,18 @@ export default function ProductDetailClient({
       </dl>
 
       {variantsForColor.length > 0 && pack && (
-        <PackAddToCartForm
-          productSlug={product.slug}
-          productName={product.name}
-          image={product.image}
-          variants={variantsForColor}
-          pack={pack}
-        />
+        // id + scroll-mt: el botón "Quiero este pack" de /packs enlaza aquí
+        // directamente (#pack-form) para no obligar a bajar pasando por
+        // galería/descripción — petición del dueño, 2026-10-01.
+        <div id="pack-form" className="scroll-mt-24">
+          <PackAddToCartForm
+            productSlug={product.slug}
+            productName={product.name}
+            image={product.image}
+            variants={variantsForColor}
+            pack={pack}
+          />
+        </div>
       )}
 
       {variantsForColor.length > 0 &&

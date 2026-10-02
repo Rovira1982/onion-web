@@ -1,14 +1,43 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
 import { getBrands, getCategories, getOccasions, searchProducts } from "@/lib/products";
 
-export const metadata = {
-  title: "Catálogo",
-  description:
-    "Miles de regalos de empresa y artículos publicitarios personalizables con tu logo: ropa, escritura, bolsas, tecnología y mucho más.",
-};
-
 type SearchParams = { categoria?: string; ocasion?: string; marca?: string; outlet?: string; q?: string; page?: string };
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}): Promise<Metadata> {
+  const { categoria, ocasion, marca, outlet, q, page } = await searchParams;
+  const [categories, brands, occasions] = await Promise.all([
+    getCategories(),
+    getBrands(),
+    ocasion ? getOccasions() : Promise.resolve([]),
+  ]);
+  const activeCategory = categories.find((c) => c.slug === categoria);
+  const activeOccasion = occasions.find((o) => o.slug === ocasion);
+  const activeBrand = brands.find((b) => b.slug === marca);
+  const isOutlet = outlet === "1";
+
+  const label =
+    activeOccasion?.name ??
+    activeCategory?.name ??
+    (activeBrand ? activeBrand.name : isOutlet ? "Outlet" : q ? `Resultados para "${q}"` : null);
+
+  const title = label ? `${label} personalizados con tu logo` : "Catálogo completo";
+  const description = label
+    ? `${label} personalizables con tu logo. Presupuesto sin compromiso en menos de 24 horas.`
+    : "Miles de regalos de empresa y artículos publicitarios personalizables con tu logo: ropa, escritura, bolsas, tecnología y mucho más.";
+
+  // Páginas de búsqueda libre o de paginación >1 no deberían indexarse —
+  // son variantes de la misma página, no contenido único (evita duplicados,
+  // "faceted navigation" — Operaciones/SEO, 2026-10-01).
+  const skipIndex = !!q || (!!page && parseInt(page, 10) > 1);
+
+  return { title, description, robots: skipIndex ? { index: false, follow: true } : undefined };
+}
 
 function buildPageHref(
   base: { categoria?: string; ocasion?: string; marca?: string; outlet?: string; q?: string },
