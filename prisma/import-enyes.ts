@@ -27,10 +27,10 @@
 // aquí cada variante/color puede tener su propio coste real, así que el
 // precio se calcula variante a variante, no una vez por familia.
 //
-// Importa con stock:0 SIEMPRE en creación (igual que Makito/Anbor) —
-// invisible hasta confirmar el margen con el dueño; Enyes sí trae
-// imágenes públicas (sin auth, a diferencia de Makito), así que no hace
-// falta una fase 2 aparte para fotos.
+// Margen ×2 confirmado por Josep 2026-10-02 — stock real activado (antes
+// se importaba con stock:0 siempre, a propósito, hasta tener ese visto
+// bueno). Enyes sí trae imágenes públicas (sin auth, a diferencia de
+// Makito), así que no hace falta una fase 2 aparte para fotos.
 //
 // Run with: npx tsx prisma/import-enyes.ts [--limit=25]
 import { config } from "dotenv";
@@ -188,9 +188,7 @@ async function main() {
     return cat.id;
   }
 
-  // Margen ×2 — mismo criterio que Cifra/Roly/Stamina/Makito, pendiente de
-  // confirmación explícita del dueño para Enyes específicamente antes de
-  // activar stock real (se importa con stock:0 hasta entonces).
+  // Margen ×2 — mismo criterio que Cifra/Roly/Stamina/Makito.
   const MARGEN = 2;
 
   let familiesWritten = 0;
@@ -228,6 +226,7 @@ async function main() {
       const name = core.name?.["1"] || familyCode;
       const description = (core.description?.["1"] ?? "").replace(/<[^>]+>/g, " ").trim() || null;
       const mainImage = core.images?.[0]?.url ?? null;
+      const totalStock = [...stockByCombo.values()].reduce((sum, q) => sum + (q || 0), 0);
 
       const product = await prisma.product.upsert({
         where: { supplierId_supplierSku: { supplierId: supplier.id, supplierSku: familyCode } },
@@ -237,10 +236,9 @@ async function main() {
           brand: "Enyes",
           categoryId,
           basePrice: productBasePrice,
+          stock: totalStock,
           incompleteData,
           lastSyncedAt: new Date(),
-          // stock NO se toca en el update — mismo motivo que Makito: si ya
-          // se activó a mano no se vuelve a apagar en una re-ejecución.
         },
         create: {
           supplierId: supplier.id,
@@ -250,7 +248,7 @@ async function main() {
           brand: "Enyes",
           categoryId,
           basePrice: productBasePrice,
-          stock: 0,
+          stock: totalStock,
           incompleteData,
         },
       });
@@ -300,8 +298,8 @@ async function main() {
             size,
             price,
             costUnit: realCost,
+            stock,
             productId: product.id,
-            // stock tampoco se toca aquí.
           },
           create: {
             productId: product.id,
@@ -309,7 +307,7 @@ async function main() {
             size,
             price,
             costUnit: realCost,
-            stock: 0,
+            stock,
             supplierModelCode,
           },
         });
@@ -328,9 +326,7 @@ async function main() {
     await sleep(delayMs);
   }
 
-  console.log(
-    `\nImportación completa: ${familiesWritten} familias, ${variantsWritten} variantes (${familiesFailed} fallos) — sin foto de fase 2, pero SÍ con stock:0 hasta confirmar margen.`
-  );
+  console.log(`\nImportación completa: ${familiesWritten} familias, ${variantsWritten} variantes (${familiesFailed} fallos).`);
   await prisma.$disconnect();
 }
 

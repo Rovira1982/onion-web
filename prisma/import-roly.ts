@@ -75,7 +75,13 @@ function getCatalog(params: { brand: string }) {
 function getPricelist(params: { brand: string }) {
   const form = new FormData();
   form.set("brand", params.brand);
-  form.set("includeoutlet", "0");
+  // includeoutlet=1 es aditivo (confirmado en directo, 2026-10-02: no
+  // reemplaza la lista normal, añade las ~931 líneas outlet encima) — con
+  // "0" los productos marcados como outlet en el catálogo (ej. ETNA
+  // SU1077) nunca tenían entrada aquí y se quedaban en basePrice=0 pese a
+  // tener stock real, un hueco real de 47 productos Roly encontrado por
+  // Josep ordenando el catálogo por precio.
+  form.set("includeoutlet", "1");
   return gfPost(`/api/v1/item/pricelist`, form) as Promise<{
     pricelist: { productcode: string; type: string; price_unit: number | null; price_1: number | null }[];
   }>;
