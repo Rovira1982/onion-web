@@ -162,9 +162,15 @@ export default async function CatalogoPage({
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-ink">
-            {activeOccasion?.name ??
-              activeCategory?.name ??
-              (activeBrand ? `Marca: ${activeBrand.name}` : isOutlet ? "Outlet" : "Catálogo completo")}
+            {activeOccasion
+              ? `${activeOccasion.name} personalizados`
+              : activeCategory
+                ? `${activeCategory.name} personalizados`
+                : activeBrand
+                  ? `Marca: ${activeBrand.name}`
+                  : isOutlet
+                    ? "Outlet"
+                    : "Catálogo de productos personalizados"}
           </h1>
           <p className="mt-1 text-ink-soft">
             {total} {total === 1 ? "producto encontrado" : "productos encontrados"}
