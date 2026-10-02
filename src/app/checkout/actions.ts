@@ -9,6 +9,13 @@ import { validateDiscountCode, type DiscountCheckResult } from "@/lib/discounts"
 import { getPack, type PackDefinition } from "@/lib/packs";
 import { slugify } from "@/lib/product-format";
 import { sendCapiEvent } from "@/lib/meta-capi";
+import { cookies } from "next/headers";
+
+// Debe coincidir exactamente con MARKETING_CONSENT_COOKIE en src/lib/consent.ts
+// (no se importa de ahí directamente — ese módulo es "use client"). Parche de
+// cumplimiento RGPD, Guardian P0, 2026-10-02: el CAPI se mandaba siempre, sin
+// mirar si el cliente aceptó cookies de marketing.
+const MARKETING_CONSENT_COOKIE = "oab_marketing_consent";
 
 // Envío al cliente — 6€ fijo, gratis desde 300€ de importe final (con
 // descuento e IVA incluidos, sin contar el propio envío). Decisión del
@@ -299,14 +306,19 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
     // checkout response — sendCapiEvent already swallows its own errors.
     // event_id = order.id so the client-side Purchase fired on the gracias
     // page (see PurchasePixel) dedupes with this one in Meta's eyes.
-    void sendCapiEvent({
-      eventName: "Purchase",
-      eventId: order.id,
-      email: input.contactEmail,
-      phone: input.contactPhone || undefined,
-      value: parseFloat(order.total.toString()),
-      currency: "EUR",
-    });
+    // Solo si el cliente aceptó cookies de marketing (Guardian P0,
+    // 2026-10-02) — antes se mandaba siempre, incluso rechazando el banner.
+    const marketingConsent = (await cookies()).get(MARKETING_CONSENT_COOKIE)?.value === "1";
+    if (marketingConsent) {
+      void sendCapiEvent({
+        eventName: "Purchase",
+        eventId: order.id,
+        email: input.contactEmail,
+        phone: input.contactPhone || undefined,
+        value: parseFloat(order.total.toString()),
+        currency: "EUR",
+      });
+    }
 
     return { orderId: order.id };
   } catch (err) {

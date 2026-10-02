@@ -31,11 +31,23 @@ function subscribe(cb: () => void) {
   };
 }
 
+// Nombre de la cookie que lee el servidor (checkout/actions.ts) antes de
+// mandar el evento de Meta CAPI — localStorage no es legible desde un
+// Server Action. Cookie técnica/necesaria (guarda la propia elección de
+// consentimiento, no necesita consentimiento para existir). Parche de
+// seguridad/cumplimiento, Guardian P0, 2026-10-02.
+export const MARKETING_CONSENT_COOKIE = "oab_marketing_consent";
+
 export function saveConsent(marketing: boolean) {
   try {
     localStorage.setItem(KEY, JSON.stringify({ marketing, ts: Date.now() } satisfies Consent));
   } catch {
     // Storage unavailable: the choice just won't persist.
+  }
+  try {
+    document.cookie = `${MARKETING_CONSENT_COOKIE}=${marketing ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
+  } catch {
+    // Cookies unavailable: the server-side CAPI gate just defaults to "no consent".
   }
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
