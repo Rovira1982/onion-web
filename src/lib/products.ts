@@ -15,6 +15,12 @@ export { slugify, describeEngravingTechnique } from "./product-format";
 const FALLBACK_CATEGORY = "Otros artículos";
 const PAGE_SIZE = 24;
 
+// Qué se ve en la tienda (Josep, 2026-10-02): con stock, con precio real y con
+// al menos una foto. Excluirlo aquí en vez de poner stock a 0 a mano — la
+// siguiente sincronización de proveedor lo revertiría. Un producto a 0 €
+// se podría pedir gratis; uno sin foto no se puede vender.
+const VISIBLE = { stock: { gt: 0 }, basePrice: { gt: 0 }, images: { some: {} } } as const;
+
 type DbProductWithRelations = {
   id: string;
   name: string;
@@ -59,8 +65,8 @@ const productInclude = {
 
 export async function getTopCategories(limit = 8) {
   const categories = await prisma.category.findMany({
-    where: { name: { not: FALLBACK_CATEGORY }, products: { some: { stock: { gt: 0 } } } },
-    include: { _count: { select: { products: { where: { stock: { gt: 0 } } } } } },
+    where: { name: { not: FALLBACK_CATEGORY }, products: { some: { ...VISIBLE } } },
+    include: { _count: { select: { products: { where: { ...VISIBLE } } } } },
   });
   const top = categories
     .map((c) => ({ id: c.id, name: displayCategoryName(c.name), slug: c.slug, count: c._count.products }))
@@ -69,7 +75,7 @@ export async function getTopCategories(limit = 8) {
 
   const minPrices = await prisma.product.groupBy({
     by: ["categoryId"],
-    where: { categoryId: { in: top.map((c) => c.id) }, stock: { gt: 0 } },
+    where: { categoryId: { in: top.map((c) => c.id) }, ...VISIBLE },
     _min: { basePrice: true },
   });
   const priceByCategoryId = new Map(minPrices.map((m) => [m.categoryId, m._min.basePrice ? parseFloat(m._min.basePrice.toString()) : null]));
@@ -79,7 +85,7 @@ export async function getTopCategories(limit = 8) {
 
 export async function getCategories() {
   const categories = await prisma.category.findMany({
-    include: { _count: { select: { products: { where: { stock: { gt: 0 } } } } } },
+    include: { _count: { select: { products: { where: { ...VISIBLE } } } } },
   });
   return categories
     .map((c) => ({ name: displayCategoryName(c.name), slug: c.slug, count: c._count.products }))
@@ -90,7 +96,7 @@ export async function getCategories() {
 export async function getBrands() {
   const rows = await prisma.product.groupBy({
     by: ["brand"],
-    where: { stock: { gt: 0 }, brand: { not: null } },
+    where: { ...VISIBLE, brand: { not: null } },
     _count: { _all: true },
   });
   return rows
@@ -105,7 +111,7 @@ export const getProductBySlug = cache(async (slug: string): Promise<ProductDetai
   // Slug is derived (name + sku), not stored — scan is fine at this catalog
   // size; add a stored+indexed slug column if this ever needs to scale up.
   const products = await prisma.product.findMany({
-    where: { stock: { gt: 0 } },
+    where: { ...VISIBLE },
     include: {
       category: { select: { name: true } },
       // La ficha de producto sí enseña todas las fotos (galería) — a
@@ -135,7 +141,7 @@ export const getProductBySlug = cache(async (slug: string): Promise<ProductDetai
 
 export async function getProductsByCategorySlug(categorySlug: string, limit?: number): Promise<Product[]> {
   const products = await prisma.product.findMany({
-    where: { stock: { gt: 0 }, category: { slug: categorySlug } },
+    where: { ...VISIBLE, category: { slug: categorySlug } },
     include: productInclude,
     take: limit,
   });
@@ -159,7 +165,7 @@ export async function getFeaturedProducts(limit = 8): Promise<Product[]> {
 // payloads for all ~2600 rows just to list their URLs.
 export async function getAllProductSlugsForSitemap(): Promise<{ slug: string; lastModified: Date }[]> {
   const products = await prisma.product.findMany({
-    where: { stock: { gt: 0 } },
+    where: { ...VISIBLE },
     select: { name: true, supplierSku: true, lastSyncedAt: true },
   });
   return products.map((p) => ({
@@ -206,7 +212,7 @@ export async function getOccasions() {
 export async function getOutletCount() {
   return prisma.product.count({
     where: {
-      stock: { gt: 0 },
+      ...VISIBLE,
       OR: [{ category: { slug: "outlet" } }, { subcategory: { contains: "outlet", mode: "insensitive" } }],
     },
   });
@@ -237,7 +243,7 @@ export async function searchProducts(opts: {
   // outlet and q both need their own OR — combined via AND so neither
   // overwrites the other when both filters are active at once.
   const where = {
-    stock: { gt: 0 },
+    ...VISIBLE,
     ...(opts.category ? { category: { slug: opts.category } } : {}),
     ...(opts.occasion ? { occasions: { some: { occasion: { slug: opts.occasion } } } } : {}),
     ...(opts.brand ? { brand: opts.brand } : {}),
