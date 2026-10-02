@@ -23,8 +23,8 @@ const TECHNIQUES: { value: Technique; label: string }[] = [
 
 const SIZES: { value: PrintSize; label: string }[] = [
   { value: "10x10", label: "10×10 cm" },
-  { value: "23x23", label: "23×23 cm" },
-  { value: "30x30", label: "30×30 cm" },
+  { value: "22x22", label: "22×22 cm" },
+  { value: "28x28", label: "28×28 cm" },
 ];
 
 const GARMENT_TYPES: { value: GarmentType; label: string }[] = [
@@ -77,7 +77,7 @@ export default function EquipacionPresupuestoPage() {
   const [nombre, setNombre] = useState(false);
   const [dorsal, setDorsal] = useState(false);
   const [logoEspalda, setLogoEspalda] = useState(false);
-  const [logoEspaldaSize, setLogoEspaldaSize] = useState<PrintSize>("30x30");
+  const [logoEspaldaSize, setLogoEspaldaSize] = useState<PrintSize>("28x28");
 
   const [mangasActive, setMangasActive] = useState(false);
   const [mangasTechnique, setMangasTechnique] = useState<Technique>("DTF");
@@ -103,7 +103,7 @@ export default function EquipacionPresupuestoPage() {
     const dtfMarks: { size: PrintSize; active: boolean }[] = [
       { size: "10x10", active: bolsilloIzq },
       { size: "10x10", active: bolsilloDer },
-      { size: "23x23", active: diafragma },
+      { size: "22x22", active: diafragma },
       { size: logoEspaldaSize, active: logoEspalda },
     ];
 
@@ -154,7 +154,7 @@ export default function EquipacionPresupuestoPage() {
     const marks = [
       bolsilloIzq && "Bolsillo izquierdo (10×10, DTF)",
       bolsilloDer && "Bolsillo derecho (10×10, DTF)",
-      diafragma && "Diafragma (23×23, DTF)",
+      diafragma && "Diafragma (22×22, DTF)",
       logoEspalda && `Logo espalda (${logoEspaldaSize}, DTF)`,
       nombre && "Nombre individual (vinilo)",
       dorsal && "Dorsal (vinilo)",
@@ -192,7 +192,7 @@ export default function EquipacionPresupuestoPage() {
             <div className="mt-3 flex flex-col gap-2">
               <MarkToggle title="Bolsillo izquierdo" sizeLabel="10×10" active={bolsilloIzq} onToggle={setBolsilloIzq} />
               <MarkToggle title="Bolsillo derecho" sizeLabel="10×10" active={bolsilloDer} onToggle={setBolsilloDer} />
-              <MarkToggle title="Diafragma" sizeLabel="23×23" active={diafragma} onToggle={setDiafragma} />
+              <MarkToggle title="Diafragma" sizeLabel="22×22" active={diafragma} onToggle={setDiafragma} />
             </div>
           </div>
 

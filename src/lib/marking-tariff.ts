@@ -16,22 +16,25 @@ const QUANTITY_TIERS = [1, 5, 10, 25, 50, 100, 250, 500] as const;
 // as REQUIRES_CONSULTATION elsewhere) — markingUnitPrice returns null.
 type TierRow = readonly (number | "consultar")[];
 
+// Tamaños renombrados 2026-10-01 (Finanzas): 23x23→22x22, 30x30→28x28 — misma
+// tarifa de precios, solo cambia la etiqueta del tramo. Ver
+// E:\onion\26\finanzas\propuesta-tarifas\Tabla_marcaje_tamanos_nuevos_v1.xlsx.
 const DTF: Record<PrintSize, TierRow> = {
   "10x10": [5.3, 4.75, 4.15, 2.2, 1.5, 1.15, 0.95, 0.85],
-  "23x23": [6.25, 5.7, 5.1, 3.1, 2.4, 2.05, 1.8, 1.7],
-  "30x30": [6.95, 6.4, 5.9, 3.85, 3.15, 2.8, 2.55, 2.4],
+  "22x22": [6.25, 5.7, 5.1, 3.1, 2.4, 2.05, 1.8, 1.7],
+  "28x28": [6.95, 6.4, 5.9, 3.85, 3.15, 2.8, 2.55, 2.4],
 };
 
 const VINILO: Record<PrintSize, TierRow> = {
   "10x10": [4.85, 1.8, 1.5, 1.45, 1.4, 1.1, 1.05, 1.05],
-  "23x23": [7, 3.95, 3.55, 3.4, 3.25, 3.2, 3.2, 3.2],
-  "30x30": [8.25, 5.3, 5.1, 5, 4.8, 4.5, 4.5, 4.5],
+  "22x22": [7, 3.95, 3.55, 3.4, 3.25, 3.2, 3.2, 3.2],
+  "28x28": [8.25, 5.3, 5.1, 5, 4.8, 4.5, 4.5, 4.5],
 };
 
 const SUBLIMACION: Record<PrintSize, TierRow> = {
   "10x10": [8.8, 5.9, 2.3, 1.85, 1.2, 1.2, 1.15, 1.15],
-  "23x23": [9.8, 6.6, 2.65, 2.4, 2.35, 2.35, 2.3, 2.3],
-  "30x30": [11.25, 7.55, 3.75, 3.55, 3.5, 3.45, 3.45, 3.45],
+  "22x22": [9.8, 6.6, 2.65, 2.4, 2.35, 2.35, 2.3, 2.3],
+  "28x28": [11.25, 7.55, 3.75, 3.55, 3.5, 3.45, 3.45, 3.45],
 };
 
 // Serigrafía's tariff varies by number of colors, not print size.

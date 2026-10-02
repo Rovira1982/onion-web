@@ -27,15 +27,20 @@ describe("calculateQuote", () => {
   // Recomputed 2026-09-30 for Coste_hora_base=13 (was 6) — the owner's
   // decision to price labor at real salary+SS cost instead of the old,
   // uncosted historical figure. 56.75 was correct for Coste_hora_base=6.
-  test("matches the Excel reference case (DTF, espalda 30x30, 8 uds, prenda 1.65€)", () => {
+  // DTF_coste_m2 corregido 2026-10-01 (Finanzas): la bobina real mide 0,55m
+  // de ancho, "1 metro" de rollo son 0,55m² reales — antes la constante
+  // (DTF_metro=11) se trataba como €/m², infravalorando el coste ~45%. El
+  // valor de referencia de abajo está recalculado tras la corrección, ya no
+  // coincide con el antiguo 57,65€ del Excel (que arrastraba el mismo error).
+  test("matches the corrected DTF material cost (DTF, espalda 28x28, 8 uds, prenda 1.65€)", () => {
     const result = calculateQuote(
       baseInput({
-        espalda: { active: true, colors: 1, size: "30x30" },
+        espalda: { active: true, colors: 1, size: "28x28" },
         garmentUnitCost: 1.65,
         quantity: 8,
       })
     );
-    expect(result.finalPrices.recommended).toBeCloseTo(57.65, 2);
+    expect(result.finalPrices.recommended).toBeCloseTo(73.1, 2);
   });
 
   // Below ~10 units, DTF's own per-unit floor (5€) is above what the

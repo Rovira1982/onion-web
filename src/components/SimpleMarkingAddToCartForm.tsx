@@ -24,8 +24,8 @@ function sortVariantsBySize<T extends { size: string }>(variants: T[]): T[] {
 
 const SIZES: { value: PrintSize; label: string }[] = [
   { value: "10x10", label: "10×10 cm" },
-  { value: "23x23", label: "23×23 cm" },
-  { value: "30x30", label: "30×30 cm" },
+  { value: "22x22", label: "22×22 cm" },
+  { value: "28x28", label: "28×28 cm" },
 ];
 
 const TECHNIQUE_LABEL: Record<Technique, string> = {

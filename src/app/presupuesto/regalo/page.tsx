@@ -21,8 +21,8 @@ const TECHNIQUES: { value: Technique; label: string }[] = [
 
 const SIZES: { value: PrintSize; label: string }[] = [
   { value: "10x10", label: "Pequeño (10×10 cm)" },
-  { value: "23x23", label: "Mediano (23×23 cm)" },
-  { value: "30x30", label: "Grande (30×30 cm)" },
+  { value: "22x22", label: "Mediano (22×22 cm)" },
+  { value: "28x28", label: "Grande (28×28 cm)" },
 ];
 
 const GARMENT_TYPES: { value: GarmentType; label: string }[] = [

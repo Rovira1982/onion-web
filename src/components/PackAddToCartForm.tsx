@@ -31,12 +31,12 @@ function money(n: number) {
 // precio es el fijo del pack, ver src/lib/packs.ts). Solo sirve para
 // capturar el logo/posición de cara a producción, igual que hace el
 // configurador normal. Tamaños en el tramo más cercano de la tarifa
-// (10x10/30x30) — no afecta al precio del pack, es puramente informativo.
+// (10x10/28x28) — no afecta al precio del pack, es puramente informativo.
 function fixedMarkingConfig(quantity: number): QuoteInput {
   return {
     technique: "DTF",
     pecho: { active: true, colors: 1, size: "10x10" },
-    espalda: { active: true, colors: 1, size: "30x30" },
+    espalda: { active: true, colors: 1, size: "28x28" },
     mangas: { active: false, colors: 1, size: "10x10" },
     garmentType: "Cliente",
     garmentUnitCost: 0,

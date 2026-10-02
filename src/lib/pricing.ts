@@ -1,18 +1,21 @@
 // Quote/pricing engine — ported from the business's real Excel tool
 // ("Sistema Onion pruebas 2 - MEJORADO v2.xlsx", sheets PRESUPUESTOS_RAPIDOS +
 // Costes_Base). Verified against a real example from that file (DTF, espalda
-// 30x30, 8 uds, coste prenda 1.65€, margen 0.7) — matched the spreadsheet
-// exactly before two confirmed corrections: the Serigrafia double screen
-// charge, and the Sublimacion 11-30-unit floor. See inline notes below.
+// 28x28, 8 uds, coste prenda 1.65€, margen 0.7) — matched the spreadsheet
+// exactly before three confirmed corrections: the Serigrafia double screen
+// charge, the Sublimacion 11-30-unit floor, and the DTF_coste_m2 fix below.
+// See inline notes below.
 //
 // Note on minUnitPriceForTechnique: the garment's own margin is a separate,
 // flexible lever (the business may sell the garment closer to cost on large
 // orders) — it does not belong inside this floor. The floor only needs to
 // guarantee the technique's own material+time cost is covered, which the
 // Excel-sourced minimums already do with headroom (checked: DTF's 5€ floor
-// at the ≤10-unit tier vs. ~1.08€ of actual material+labor for a 30x30 mark).
+// at the ≤10-unit tier vs. ~1.08€ of actual material+labor for a 28x28 mark).
 export type Technique = "Serigrafia" | "Vinilo" | "Sublimacion" | "DTF";
-export type PrintSize = "10x10" | "23x23" | "30x30";
+// Tamaños renombrados 2026-10-01 (Finanzas): 23x23→22x22, 30x30→28x28 — misma
+// tabla de precios, solo cambia la etiqueta del tramo (ver marking-tariff.ts).
+export type PrintSize = "10x10" | "22x22" | "28x28";
 export type GarmentType = "Basica" | "Premium" | "Gama_media" | "Cliente";
 
 export type PrintZone = {
@@ -46,7 +49,15 @@ export const BASE_COSTS = {
   Multiplicador_prem: 1.8,
   IVA_porcentaje: 0.21,
   Redondeo_precio: 0.05,
-  DTF_metro: 11, // €/metro de film
+  // Coste real del film DTF por m² — corregido 2026-10-01 (Finanzas): la
+  // bobina real mide 0,55m de ancho, así que "1 metro" de rollo son 0,55m²
+  // reales, no 1m². Antes esta constante se llamaba DTF_metro=11 y el código
+  // la trataba como si fueran 11€/m², cuando en realidad son 11€ por
+  // 0,55m² (= 20€/m² real) — infravaloraba el coste del film en ~45%. Solo
+  // corrige el coste/margen interno de calculateQuote (función ya sustituida
+  // por marking-tariff.ts para el precio real al cliente) — no cambia nada
+  // de cara al cliente.
+  DTF_coste_m2: 20, // €/m² real de film (11€ ÷ 0,55m²)
   DTF_tiempo_prenda: 25, // segundos por prenda
   Gastos_fijos_mes: 1100,
   Horas_mes: 160,
@@ -69,9 +80,9 @@ function activeZoneCount(input: QuoteInput): number {
   return (input.pecho.active ? 1 : 0) + (input.espalda.active ? 1 : 0) + (input.mangas.active ? 1 : 0);
 }
 
-const VINILO_SIZE_FACTOR: Record<PrintSize, number> = { "10x10": 0.1, "23x23": 0.35, "30x30": 0.5 };
-const SUBLIMACION_SIZE_FACTOR: Record<PrintSize, number> = { "10x10": 0.6, "23x23": 1.4, "30x30": 2.2 };
-const DTF_SIZE_FACTOR: Record<PrintSize, number> = { "10x10": 0.01, "23x23": 0.0529, "30x30": 0.09 };
+const VINILO_SIZE_FACTOR: Record<PrintSize, number> = { "10x10": 0.1, "22x22": 0.35, "28x28": 0.5 };
+const SUBLIMACION_SIZE_FACTOR: Record<PrintSize, number> = { "10x10": 0.6, "22x22": 1.4, "28x28": 2.2 };
+const DTF_SIZE_FACTOR: Record<PrintSize, number> = { "10x10": 0.01, "22x22": 0.0529, "28x28": 0.09 };
 
 function screensCount(input: QuoteInput): number {
   const mangasMult = input.mangas.multiplier ?? 1;
@@ -108,7 +119,7 @@ function materialCost(input: QuoteInput): number {
         (pecho.active ? DTF_SIZE_FACTOR[pecho.size] : 0) +
         (espalda.active ? DTF_SIZE_FACTOR[espalda.size] : 0) +
         (mangas.active ? DTF_SIZE_FACTOR[mangas.size] : 0);
-      return quantity * BASE_COSTS.DTF_metro * sum;
+      return quantity * BASE_COSTS.DTF_coste_m2 * sum;
     }
   }
 }
@@ -241,14 +252,13 @@ export function calculateQuote(input: QuoteInput): QuoteResult {
 //
 // Rules (Anexo A, closed with the business):
 // - Pecho: up to 3 independent marks — bolsillo_izq (10x10), bolsillo_der
-//   (10x10), diafragma (~22x22, uses the existing 23x23 size tier).
+//   (10x10), diafragma (22x22).
 // - Espalda: up to 3 independent marks — nombre, dorsal, logo_espalda.
 // - Each active mark is billed in full (its own material+labor cost) even if
 //   production could share a pass — explicit business decision, not an
 //   optimization target.
-// - Main logo marks (pecho + logo_espalda) → DTF: cost = area_m2 × 11€/m²
-//   (DTF_metro; real supplier cost 9€, 2€/m² margin already baked in — do not
-//   lower this constant).
+// - Main logo marks (pecho + logo_espalda) → DTF: cost = area_m2 ×
+//   DTF_coste_m2 (20€/m² real, ver BASE_COSTS).
 // - Nombre → Vinilo (in-house), flat 2€/unit. Dorsal → Vinilo, flat 3€/unit.
 //   Both flat charges stack (5€/unit combined), added after the margin
 //   pipeline — the same treatment calculateQuote gives personalizedName.
@@ -259,7 +269,7 @@ export type DtfMarkPosition = "bolsillo_izq" | "bolsillo_der" | "diafragma" | "l
 export type DtfMark = {
   position: DtfMarkPosition;
   active: boolean;
-  size: PrintSize; // diafragma should use "23x23" (closest tier to ~22x22)
+  size: PrintSize; // diafragma should use "22x22"
 };
 
 export const CARGO_NOMBRE_EQUIPACION = 2; // €/unit, vinilo — Anexo A
@@ -311,7 +321,7 @@ export function calculateTeamGarmentQuote(input: TeamGarmentQuoteInput): TeamGar
     : { material: 0, labor: 0, overhead: 0 };
 
   const dtfMaterial = activeDtfMarks.reduce(
-    (sum, m) => sum + quantity * BASE_COSTS.DTF_metro * DTF_SIZE_FACTOR[m.size],
+    (sum, m) => sum + quantity * BASE_COSTS.DTF_coste_m2 * DTF_SIZE_FACTOR[m.size],
     0
   );
   const dtfLabor = activeDtfMarks.length * (BASE_COSTS.DTF_tiempo_prenda / 3600) * quantity * BASE_COSTS.Coste_hora_base;
