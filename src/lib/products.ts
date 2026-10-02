@@ -212,6 +212,19 @@ export async function getOutletCount() {
   });
 }
 
+export type ProductSort = "relevancia" | "precio_asc" | "precio_desc" | "nombre_asc" | "nombre_desc";
+
+const SORT_ORDER_BY: Record<ProductSort, { stock: "desc" } | { basePrice: "asc" | "desc" } | { name: "asc" | "desc" }> = {
+  // No real "bestseller" data yet — highest stock first is a reasonable
+  // stand-in default (mainstream staples tend to be stocked deeper than
+  // niche industrial items) rather than the supplier's raw table order.
+  relevancia: { stock: "desc" },
+  precio_asc: { basePrice: "asc" },
+  precio_desc: { basePrice: "desc" },
+  nombre_asc: { name: "asc" },
+  nombre_desc: { name: "desc" },
+};
+
 export async function searchProducts(opts: {
   category?: string;
   occasion?: string;
@@ -219,6 +232,7 @@ export async function searchProducts(opts: {
   outlet?: boolean;
   q?: string;
   page?: number;
+  sort?: ProductSort;
 }) {
   // outlet and q both need their own OR — combined via AND so neither
   // overwrites the other when both filters are active at once.
@@ -257,10 +271,7 @@ export async function searchProducts(opts: {
   const products = await prisma.product.findMany({
     where,
     include: productInclude,
-    // No real "bestseller" data yet — highest stock first is a reasonable
-    // stand-in default (mainstream staples tend to be stocked deeper than
-    // niche industrial items) rather than the supplier's raw table order.
-    orderBy: { stock: "desc" },
+    orderBy: SORT_ORDER_BY[opts.sort ?? "relevancia"],
     skip: (page - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
   });

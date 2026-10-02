@@ -1,9 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
-import { getBrands, getCategories, getOccasions, searchProducts } from "@/lib/products";
+import SortSelect from "@/components/SortSelect";
+import { getBrands, getCategories, getOccasions, searchProducts, type ProductSort } from "@/lib/products";
 
-type SearchParams = { categoria?: string; ocasion?: string; marca?: string; outlet?: string; q?: string; page?: string };
+type SearchParams = {
+  categoria?: string;
+  ocasion?: string;
+  marca?: string;
+  outlet?: string;
+  q?: string;
+  page?: string;
+  orden?: string;
+};
+
+const VALID_SORTS = new Set<ProductSort>(["relevancia", "precio_asc", "precio_desc", "nombre_asc", "nombre_desc"]);
+function parseSort(orden: string | undefined): ProductSort {
+  return orden && VALID_SORTS.has(orden as ProductSort) ? (orden as ProductSort) : "relevancia";
+}
 
 export async function generateMetadata({
   searchParams,
@@ -40,7 +54,7 @@ export async function generateMetadata({
 }
 
 function buildPageHref(
-  base: { categoria?: string; ocasion?: string; marca?: string; outlet?: string; q?: string },
+  base: { categoria?: string; ocasion?: string; marca?: string; outlet?: string; q?: string; orden?: string },
   page: number
 ) {
   const params = new URLSearchParams();
@@ -49,6 +63,7 @@ function buildPageHref(
   if (base.marca) params.set("marca", base.marca);
   if (base.outlet) params.set("outlet", base.outlet);
   if (base.q) params.set("q", base.q);
+  if (base.orden) params.set("orden", base.orden);
   if (page > 1) params.set("page", String(page));
   const qs = params.toString();
   return qs ? `/catalogo?${qs}` : "/catalogo";
@@ -59,7 +74,8 @@ export default async function CatalogoPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { categoria, ocasion, marca, outlet, q, page } = await searchParams;
+  const { categoria, ocasion, marca, outlet, q, page, orden } = await searchParams;
+  const sort = parseSort(orden);
   const categories = await getCategories();
   const brands = await getBrands();
   const occasions = ocasion ? await getOccasions() : [];
@@ -72,6 +88,7 @@ export default async function CatalogoPage({
     outlet: isOutlet,
     q,
     page: page ? parseInt(page, 10) : 1,
+    sort,
   });
 
   const activeCategory = categories.find((c) => c.slug === categoria);
@@ -154,11 +171,14 @@ export default async function CatalogoPage({
           </p>
         </div>
 
+        <SortSelect current={sort} />
+
         <form action="/catalogo" className="flex w-full max-w-sm gap-2 sm:w-auto">
           {categoria && <input type="hidden" name="categoria" value={categoria} />}
           {ocasion && <input type="hidden" name="ocasion" value={ocasion} />}
           {marca && <input type="hidden" name="marca" value={marca} />}
           {isOutlet && <input type="hidden" name="outlet" value="1" />}
+          {orden && <input type="hidden" name="orden" value={orden} />}
           <label htmlFor="q" className="sr-only">
             Buscar productos
           </label>
@@ -237,7 +257,7 @@ export default async function CatalogoPage({
                   aria-label="Paginación"
                 >
                   <Link
-                    href={buildPageHref({ categoria, ocasion, marca, outlet, q }, Math.max(1, currentPage - 1))}
+                    href={buildPageHref({ categoria, ocasion, marca, outlet, q, orden }, Math.max(1, currentPage - 1))}
                     aria-disabled={currentPage === 1}
                     className={`rounded-lg border border-border px-3 py-2 text-sm font-semibold ${
                       currentPage === 1
@@ -251,7 +271,7 @@ export default async function CatalogoPage({
                     Página {currentPage} de {totalPages}
                   </span>
                   <Link
-                    href={buildPageHref({ categoria, ocasion, marca, outlet, q }, Math.min(totalPages, currentPage + 1))}
+                    href={buildPageHref({ categoria, ocasion, marca, outlet, q, orden }, Math.min(totalPages, currentPage + 1))}
                     aria-disabled={currentPage === totalPages}
                     className={`rounded-lg border border-border px-3 py-2 text-sm font-semibold ${
                       currentPage === totalPages
