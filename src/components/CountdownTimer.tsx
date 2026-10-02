@@ -28,8 +28,8 @@ export default function CountdownTimer({ targetIso }: { targetIso: string }) {
   const units: { label: string; value: number }[] = [
     { label: "días", value: left.days },
     { label: "horas", value: left.hours },
-    { label: "min", value: left.minutes },
-    { label: "seg", value: left.seconds },
+    { label: "minutos", value: left.minutes },
+    { label: "segundos", value: left.seconds },
   ];
 
   return (
