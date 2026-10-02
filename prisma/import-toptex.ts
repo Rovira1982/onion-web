@@ -133,7 +133,7 @@ type ToptexInventoryItem = { sku: string; warehouses?: { id: string; stock: numb
 
 const BULK_PAGE_SIZE = 500; // price/inventory rows are lightweight, but 2000 hit a 504 mid-pagination — 500 is safer
 
-async function toptexGetWithRetry(path: string, attempts = 3): Promise<any> {
+async function toptexGetWithRetry(path: string, attempts = 5): Promise<any> {
   for (let i = 1; i <= attempts; i++) {
     try {
       return await toptexGet(path);
