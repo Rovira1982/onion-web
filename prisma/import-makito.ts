@@ -120,7 +120,7 @@ function commonPrefix(a: string, b: string): string {
 // una con su propia talla ya quitada) en vez de intentar adivinar a partir
 // del nombre del producto — "Sudadera Niño Comet Rosa" / "Sudadera Adulto
 // Comet Marino" / ... comparten "Sudadera " como prefijo común real.
-function fallbackBoilerplate(allVariants: MakitoVariant[], sizeLabelOf: (v: MakitoVariant) => string | null): string {
+export function fallbackBoilerplate(allVariants: MakitoVariant[], sizeLabelOf: (v: MakitoVariant) => string | null): string {
   const stripped = allVariants
     .map((v) => {
       const name = v.variant_name ?? "";
@@ -331,7 +331,13 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch((err) => {
-  console.error("Error en la importación:", err);
-  process.exit(1);
-});
+// Solo se ejecuta si este fichero es el script lanzado — otros scripts
+// (backfill de fotos, tag-makito-navidad, fix-makito-image-colors) importan
+// sus helpers, y sin esta guarda cada import arrancaba una importación
+// completa de 4609 productos como efecto secundario.
+if (/import-makito(\.[cm]?[jt]s)?$/.test(process.argv[1] ?? "")) {
+  main().catch((err) => {
+    console.error("Error en la importación:", err);
+    process.exit(1);
+  });
+}

@@ -15,7 +15,7 @@ config({ path: ".env.local" });
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { makitoMaterialCode } from "./import-makito";
+import { fallbackBoilerplate, makitoMaterialCode, parseColorLabel, sizeLabelFor } from "./import-makito";
 
 const BASE_URL = process.env.MAKITO_BASE_URL ?? "https://apis.makito.es";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
@@ -175,11 +175,21 @@ async function main() {
   // escritura de la foto principal y la activación de stock usan upsert /
   // updateMany, así que repetirlas en un producto ya activado no duplica
   // nada ni rompe nada.
-  const alreadyDone = await prisma.product.findMany({
+  // "Hecho" = tiene fotos por color Y todas casan con un color real de sus
+  // variantes — las de antes del arreglo de colores (huérfanas, una por
+  // talla) se reprocesan.
+  const withColorImages = await prisma.product.findMany({
     where: { supplierId: supplier.id, images: { some: { color: { not: null } } } },
-    select: { supplierSku: true },
+    select: { supplierSku: true, variants: { select: { color: true } }, images: { select: { color: true } } },
   });
-  const doneSkus = new Set(alreadyDone.map((p) => p.supplierSku));
+  const doneSkus = new Set(
+    withColorImages
+      .filter((p) => {
+        const valid = new Set(p.variants.map((v) => v.color));
+        return p.images.every((i) => !i.color || valid.has(i.color));
+      })
+      .map((p) => p.supplierSku)
+  );
   console.log(`Ya con fotos por color de una ejecución anterior: ${doneSkus.size}.\n`);
 
   const pending = catalog.products.filter((p) => !doneSkus.has(p.ref) && p.image);
@@ -217,9 +227,14 @@ async function main() {
     // cupo de la API de Makito (100 de capacidad, 25/min de recarga) sin
     // aportar nada nuevo. Mismo campo que ya usa la fase 1 para derivar
     // ProductVariant.color (variant_name menos el nombre del producto).
+    //
+    // El color sale de parseColorLabel (mismo que usa la fase 1), NO de un
+    // .replace(p.name, ...) a pelo: ese no quitaba ni el nombre ni la talla,
+    // y creaba una foto "por color" por cada talla (2026-10-02).
+    const fallbackPrefix = fallbackBoilerplate(variants, sizeLabelFor);
     const imageByColor = new Map<string, string>();
     for (const v of variants) {
-      const color = v.variant_name?.replace(p.name, "").trim();
+      const color = parseColorLabel(p.name, v.variant_name, sizeLabelFor(v), fallbackPrefix);
       if (color && v.variant_image && !imageByColor.has(color)) {
         imageByColor.set(color, v.variant_image);
       }
@@ -249,6 +264,12 @@ async function main() {
         colorPosition++;
       }
       await sleep(delayMs);
+    }
+
+    if (colorPosition > 1) {
+      await prisma.productImage.deleteMany({
+        where: { productId: dbProduct.id, color: { not: null, notIn: [...imageByColor.keys()] } },
+      });
     }
 
     try {
