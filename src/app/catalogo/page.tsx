@@ -40,7 +40,16 @@ export async function generateMetadata({
     activeCategory?.name ??
     (activeBrand ? activeBrand.name : isOutlet ? "Outlet" : q ? `Resultados para "${q}"` : null);
 
-  const title = label ? `${label} personalizados con tu logo` : "Catálogo completo";
+  // "X personalizados/as con tu logo" concordaba en masculino siempre
+  // ("Agendas personalizados") — Operaciones, 2026-10-02. "Con tu logo" no
+  // tiene género, así que evita el problema en vez de necesitar saber el
+  // género de cada categoría. Outlet es un caso aparte: no es una categoría
+  // de producto personalizable, el título no debe llevar ningún sufijo.
+  const title = isOutlet
+    ? "Outlet"
+    : activeOccasion || activeCategory || activeBrand || q
+      ? `${label} con tu logo`
+      : "Catálogo de productos personalizados";
   const description = label
     ? `${label} personalizables con tu logo. Presupuesto sin compromiso en menos de 24 horas.`
     : "Miles de regalos de empresa y artículos publicitarios personalizables con tu logo: ropa, escritura, bolsas, tecnología y mucho más.";
@@ -163,9 +172,9 @@ export default async function CatalogoPage({
         <div>
           <h1 className="text-3xl font-bold text-ink">
             {activeOccasion
-              ? `${activeOccasion.name} personalizados`
+              ? `${activeOccasion.name} con tu logo`
               : activeCategory
-                ? `${activeCategory.name} personalizados`
+                ? `${activeCategory.name} con tu logo`
                 : activeBrand
                   ? `Marca: ${activeBrand.name}`
                   : isOutlet
