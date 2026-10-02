@@ -6,29 +6,69 @@
 // Valida la firma/expiración de la cookie, no solo que exista — un cookie
 // con el nombre correcto pero cualquier valor pasaba antes (parche de
 // seguridad, Guardian, 2026-10-01). Usa session-token.ts (sin Prisma) en vez
-// de auth.ts porque el proxy corre en Edge runtime, que no puede cargar el
-// driver de Postgres.
+// de auth.ts porque esta parte corría pensada para Edge runtime.
+//
+// Prelaunch (Operaciones/Josep, 2026-10-02): mientras no pase LAUNCH_AT
+// (ver src/lib/launch.ts), todo el resto del sitio se reescribe a
+// /proximamente. /admin sigue funcionando siempre — el equipo necesita
+// poder gestionar pedidos durante la cuenta atrás — y un enlace secreto
+// (?preview=<LAUNCH_BYPASS_TOKEN>) deja pasar a quien lo tenga, guardado en
+// una cookie para no repetirlo en cada visita.
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth-constants";
 import { verifySessionSignature } from "@/lib/session-token";
+import { isLaunched, LAUNCH_BYPASS_COOKIE, LAUNCH_BYPASS_QUERY_PARAM } from "@/lib/launch";
 
 export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/admin/login")) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  const secret = process.env.ADMIN_SESSION_SECRET;
-  const valid = !!token && !!secret && verifySessionSignature(token, secret) !== null;
-  if (!valid) {
-    const loginUrl = new URL("/admin/login", request.url);
-    loginUrl.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    const token = request.cookies.get(SESSION_COOKIE)?.value;
+    const secret = process.env.ADMIN_SESSION_SECRET;
+    const valid = !!token && !!secret && verifySessionSignature(token, secret) !== null;
+    if (!valid) {
+      const loginUrl = new URL("/admin/login", request.url);
+      loginUrl.searchParams.set("next", request.nextUrl.pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
   }
-  return NextResponse.next();
+
+  if (isLaunched() || request.nextUrl.pathname.startsWith("/proximamente")) {
+    return NextResponse.next();
+  }
+
+  const previewToken = process.env.LAUNCH_BYPASS_TOKEN;
+  const hasBypassCookie = request.cookies.get(LAUNCH_BYPASS_COOKIE)?.value === "1";
+  const queryMatchesToken =
+    !!previewToken && request.nextUrl.searchParams.get(LAUNCH_BYPASS_QUERY_PARAM) === previewToken;
+
+  if (hasBypassCookie || queryMatchesToken) {
+    const response = NextResponse.next();
+    if (queryMatchesToken && !hasBypassCookie) {
+      response.cookies.set(LAUNCH_BYPASS_COOKIE, "1", {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 60, // 60 días — más que de sobra para toda la cuenta atrás
+      });
+    }
+    return response;
+  }
+
+  // Cabecera para que el layout raíz sepa que esto es la pantalla de
+  // prelanzamiento y se salte Header/Footer/CookieBanner/Pixel/WhatsApp —
+  // son del sitio real, no tienen sentido (ni deberían ser visibles)
+  // delante de la cuenta atrás.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-prelaunch", "1");
+  return NextResponse.rewrite(new URL("/proximamente", request.url), { request: { headers: requestHeaders } });
 }
 
 export const config = {
-  matcher: "/admin/:path*",
+  // Todo menos assets estáticos, imágenes optimizadas y los propios
+  // ficheros de metadatos (robots/sitemap ya gestionan su propio bloqueo).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)"],
 };

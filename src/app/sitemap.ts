@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAllProductSlugsForSitemap, getCategories } from "@/lib/products";
+import { isLaunched } from "@/lib/launch";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -9,6 +10,10 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Vacío durante la cuenta atrás de prelanzamiento — robots.ts ya manda
+  // Disallow global, pero más vale no ofrecer URLs para rastrear tampoco.
+  if (!isLaunched()) return [];
+
   const [categories, products] = await Promise.all([getCategories(), getAllProductSlugsForSitemap()]);
 
   const staticRoutes: MetadataRoute.Sitemap = [

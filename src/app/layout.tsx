@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Nunito_Sans, Rubik } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
@@ -42,7 +43,19 @@ export const metadata: Metadata = {
     "Regalos de empresa y artículos publicitarios personalizados con tu logo. Rapidez, calidad y trato cercano en cada pedido.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Cabecera puesta por el proxy solo al reescribir a /proximamente (ver
+  // src/proxy.ts) — el chrome del sitio real (nav, footer, banner de
+  // cookies, Pixel, WhatsApp) no tiene sentido delante de la cuenta atrás.
+  const isPrelaunch = (await headers()).get("x-prelaunch") === "1";
+  if (isPrelaunch) {
+    return (
+      <html lang="es" className={`${nunitoSans.variable} ${rubik.variable} h-full antialiased`}>
+        <body className="min-h-full bg-ink">{children}</body>
+      </html>
+    );
+  }
+
   return (
     <html lang="es" className={`${nunitoSans.variable} ${rubik.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-ink">
