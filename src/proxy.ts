@@ -43,7 +43,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isLaunched() || request.nextUrl.pathname.startsWith("/proximamente")) {
+  // /email/: imágenes de los correos automáticos, que se descargan desde fuera
+  // (sin cookie) también antes del lanzamiento.
+  if (isLaunched() || request.nextUrl.pathname.startsWith("/proximamente") || request.nextUrl.pathname.startsWith("/email/")) {
     return NextResponse.next();
   }
 

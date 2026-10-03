@@ -45,6 +45,11 @@ export function emailFooter(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): {
   };
 }
 
+// Gato "todo OK" de Diseño (240×240, 4 KB) — solo en los correos al cliente.
+export function catHtml(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): string {
+  return `<p style="margin:8px 0 0"><img src="${escapeHtml(siteUrl)}/email/gato-todo-ok.png" width="120" height="120" alt="Todo OK" style="display:block;border:0"></p>`;
+}
+
 export const orderNumber = (id: string) => id.slice(0, 8);
 const eur = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
 const escapeHtml = (s: string) =>
@@ -119,7 +124,8 @@ El equipo de Onion and Back 🐱👍${emailFooter().text}`;
 <p>${s.totals.map(escapeHtml).join("<br>")}</p>
 <p>${pay.html}</p>
 <p>Cuando recibamos el pago nos ponemos manos a la obra.</p>
-<p>Un abrazo,<br>El equipo de Onion and Back 🐱👍</p>`);
+<p>Un abrazo,<br>El equipo de Onion and Back</p>
+${catHtml()}`);
   return { subject: `Hemos recibido tu pedido nº ${n}`, text, html };
 }
 
@@ -136,7 +142,8 @@ El equipo de Onion and Back 🐱👍${emailFooter().text}`;
   const html = wrapHtml(`<p>Hola, ¡pago recibido!</p>
 <p>Hemos recibido el pago de tu pedido <strong>nº ${n}</strong> y nos ponemos manos a la obra.</p>
 <p>Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), responde a este correo y lo adjuntas.</p>
-<p>Un abrazo,<br>El equipo de Onion and Back 🐱👍</p>`);
+<p>Un abrazo,<br>El equipo de Onion and Back</p>
+${catHtml()}`);
   return { subject: "Pago recibido, nos ponemos manos a la obra", text, html };
 }
 
