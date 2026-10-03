@@ -381,7 +381,27 @@ function garmentLineUnitPrice(line: LineaSource): number {
   return Math.round((line.unitPrice - marksPerUnit) * 100) / 100;
 }
 
-function lineaRows(
+// El marcaje sale en UNA línea por combinación de código de tarifa, zona,
+// técnica, tamaño, colores, tramo, color pedido y precio unitario, sumando las
+// cantidades de todas las prendas (Finanzas, 2026-10-03). Distinto color o
+// tamaño en la misma zona = líneas separadas.
+export function groupMarks(lines: LineaSource[]): LineaSource["marks"] {
+  const groups = new Map<string, LineaSource["marks"][number]>();
+  for (const line of lines) {
+    for (const m of line.marks) {
+      const key = [m.factusolCode, m.zone, m.technique, m.size, m.colors, m.tierQty, m.colorName?.toLowerCase() ?? "", m.unitPrice].join("|");
+      const existing = groups.get(key);
+      if (existing) existing.quantity += m.quantity;
+      else groups.set(key, { ...m });
+    }
+  }
+  return [...groups.values()];
+}
+
+// El envío se cobra con IVA incluido (6 €); FactuSol lleva las líneas sin IVA.
+export const shippingNet = (shippingCost: number) => Math.round((shippingCost / 1.21) * 100) / 100;
+
+export function lineaRows(
   docNumber: number,
   lines: LineaSource[],
   shippingCost: number | undefined
@@ -405,23 +425,22 @@ function lineaRows(
       M: 0,
     };
   });
-  for (const line of lines) {
-    for (const m of line.marks) {
-      rows.push({
-        A: 1,
-        B: docNumber,
-        C: rows.length + 1,
-        D: m.factusolCode ?? "",
-        E: markDescription(m),
-        F: m.quantity,
-        J: m.unitPrice,
-        K: Math.round(m.unitPrice * m.quantity * 100) / 100,
-        L: m.quantity,
-        M: 0,
-      });
-    }
+  for (const m of groupMarks(lines)) {
+    rows.push({
+      A: 1,
+      B: docNumber,
+      C: rows.length + 1,
+      D: m.factusolCode ?? "",
+      E: markDescription(m),
+      F: m.quantity,
+      J: m.unitPrice,
+      K: Math.round(m.unitPrice * m.quantity * 100) / 100,
+      L: m.quantity,
+      M: 0,
+    });
   }
   if (shippingCost) {
+    const net = shippingNet(shippingCost);
     rows.push({
       A: 1,
       B: docNumber,
@@ -429,8 +448,8 @@ function lineaRows(
       D: SHIPPING_ARTICLE,
       E: "Gastos de envío",
       F: 1,
-      J: shippingCost,
-      K: shippingCost,
+      J: net,
+      K: net,
       L: 1,
       M: 0,
     });
@@ -439,10 +458,9 @@ function lineaRows(
 }
 
 // Comprobación pedida por Finanzas (2026-10-03): la suma de las líneas
-// exportadas (prendas + marcaje) debe igualar la base del pedido, o el
-// marcaje se estaría cobrando dos veces / faltaría. El envío se excluye: se
-// cobra con IVA incluido y va aparte en SRV-PORTES. Tolerancia de 2 céntimos
-// (los packs de precio cerrado ajustan céntimos en el total). Devuelve el
+// exportadas (prendas + marcaje + envío sin IVA, SRV-PORTES a 6 / 1,21) debe
+// igualar la base del pedido (total / 1,21 + descuento), o el marcaje se
+// estaría cobrando dos veces / faltaría. Tolerancia de 1 céntimo. Devuelve el
 // aviso a enseñar a Finanzas o null si cuadra.
 export function exportWarning(
   order: { id: string; total: number; shippingCost: number; discountAmount: number },
@@ -452,10 +470,10 @@ export function exportWarning(
     const garment = garmentLineUnitPrice(line) * line.quantity;
     const marks = line.marks.reduce((s, m) => s + m.unitPrice * m.quantity, 0);
     return sum + garment + marks;
-  }, 0);
-  const expected = (order.total - order.shippingCost) / 1.21 + order.discountAmount;
+  }, 0) + (order.shippingCost ? shippingNet(order.shippingCost) : 0);
+  const expected = order.total / 1.21 + order.discountAmount;
   const diff = Math.round((exported - expected) * 100) / 100;
-  if (Math.abs(diff) <= 0.02) return null;
+  if (Math.abs(diff) <= 0.01) return null;
   return `Pedido ${order.id.slice(0, 8)}: las líneas exportadas suman ${exported.toFixed(2)} € y la base del pedido es ${expected.toFixed(2)} € (diferencia ${diff.toFixed(2)} €). Avisar a Finanzas antes de importar en FactuSol.`;
 }
 
