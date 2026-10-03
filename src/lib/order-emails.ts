@@ -102,7 +102,9 @@ export async function sendNewOrderEmails(orderId: string): Promise<void> {
   const order = await loadOrder(orderId).catch(() => null);
   if (!order) return;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const notifyTo = process.env.CONTACT_TO_EMAIL;
+  // Avisos de pedido: ORDER_NOTIFY_EMAIL (comercial@); si no está definida, el mismo
+  // destino que el formulario de contacto.
+  const notifyTo = process.env.ORDER_NOTIFY_EMAIL || process.env.CONTACT_TO_EMAIL;
   const first = await claim(orderId, "pendiente_pago");
   await Promise.all([
     first
