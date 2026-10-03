@@ -87,10 +87,10 @@ export default async function Home() {
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/presupuesto"
+                href="/contacto"
                 className="rounded-full bg-ink px-6 py-3.5 text-center font-display text-base font-bold text-white transition-colors hover:bg-ink/90"
               >
-                Diseña la tuya
+                Pídenos presupuesto
               </Link>
               <Link
                 href="/catalogo"
