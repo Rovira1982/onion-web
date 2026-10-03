@@ -101,8 +101,7 @@ export function buildOrderConfirmation(order: EmailOrder): EmailContent {
   const n = orderNumber(order.id);
   const s = summary(order);
   const pay = paymentBlock(order.paymentMethod);
-  const name = order.invoiceName.split(" ")[0] || "";
-  const text = `Hola${name ? ` ${name}` : ""}, ¡gracias por tu pedido!
+  const text = `Hola, ¡gracias por tu pedido!
 
 Hemos recibido tu pedido nº ${n}. Este es el resumen:
 
@@ -114,7 +113,7 @@ Cuando recibamos el pago nos ponemos manos a la obra.
 
 Un abrazo,
 El equipo de Onion and Back${emailFooter().text}`;
-  const html = wrapHtml(`<p>Hola${name ? ` ${escapeHtml(name)}` : ""}, ¡gracias por tu pedido!</p>
+  const html = wrapHtml(`<p>Hola, ¡gracias por tu pedido!</p>
 <p>Hemos recibido tu pedido <strong>nº ${n}</strong>. Este es el resumen:</p>
 <ul style="padding-left:18px">${s.html}</ul>
 <p>${s.totals.map(escapeHtml).join("<br>")}</p>
@@ -126,8 +125,7 @@ El equipo de Onion and Back${emailFooter().text}`;
 
 export function buildPaymentReceived(order: EmailOrder): EmailContent {
   const n = orderNumber(order.id);
-  const name = order.invoiceName.split(" ")[0] || "";
-  const text = `Hola${name ? ` ${name}` : ""}, ¡pago recibido!
+  const text = `Hola, ¡pago recibido!
 
 Hemos recibido el pago de tu pedido nº ${n} y nos ponemos manos a la obra.
 
@@ -135,7 +133,7 @@ Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), res
 
 Un abrazo,
 El equipo de Onion and Back${emailFooter().text}`;
-  const html = wrapHtml(`<p>Hola${name ? ` ${escapeHtml(name)}` : ""}, ¡pago recibido!</p>
+  const html = wrapHtml(`<p>Hola, ¡pago recibido!</p>
 <p>Hemos recibido el pago de tu pedido <strong>nº ${n}</strong> y nos ponemos manos a la obra.</p>
 <p>Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), responde a este correo y lo adjuntas.</p>
 <p>Un abrazo,<br>El equipo de Onion and Back</p>`);
