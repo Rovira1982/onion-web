@@ -81,6 +81,9 @@ export default function SimpleMarkingAddToCartForm({
   const [technique, setTechnique] = useState<Technique>(availableTechniques[0]);
   const [colors, setColors] = useState(1);
   const [size, setSize] = useState<PrintSize>("10x10");
+  const [backActive, setBackActive] = useState(false);
+  const [backColors, setBackColors] = useState(1);
+  const [backSize, setBackSize] = useState<PrintSize>("10x10");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -93,12 +96,16 @@ export default function SimpleMarkingAddToCartForm({
 
   const zone: PrintZone = { active: true, colors, size };
   const inactiveZone: PrintZone = { active: false, colors: 1, size: "10x10" };
+  // Segunda cara opcional ("Detrás / otra cara") — el motor de precios y el
+  // pedido ya tratan "espalda" como una zona más, con su propio tamaño y
+  // colores, cobrada aparte (petición del dueño, 2026-10-03).
+  const backZone: PrintZone = backActive ? { active: true, colors: backColors, size: backSize } : inactiveZone;
   const markingConfig: QuoteInput | null =
     mode === "personalizado"
       ? {
           technique,
           pecho: zone,
-          espalda: inactiveZone,
+          espalda: backZone,
           mangas: inactiveZone,
           garmentType: "Cliente",
           garmentUnitCost: 0,
@@ -244,35 +251,84 @@ export default function SimpleMarkingAddToCartForm({
               y te lo preparamos.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-ink-soft">Colores</span>
-                <select
-                  value={colors}
-                  onChange={(e) => setColors(Number(e.target.value))}
-                  className="rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
-                >
-                  {[1, 2, 3].map((c) => (
-                    <option key={c} value={c}>
-                      {c} color{c > 1 ? "es" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-ink-soft">Tamaño del marcaje</span>
-                <select
-                  value={size}
-                  onChange={(e) => setSize(e.target.value as PrintSize)}
-                  className="rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
-                >
-                  {SIZES.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div className="flex flex-col gap-3">
+              <div className="rounded-xl border border-border p-3">
+                <span className="text-xs font-bold text-ink">Delante</span>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-ink-soft">Colores</span>
+                    <select
+                      value={colors}
+                      onChange={(e) => setColors(Number(e.target.value))}
+                      className="rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
+                    >
+                      {[1, 2, 3].map((c) => (
+                        <option key={c} value={c}>
+                          {c} color{c > 1 ? "es" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-ink-soft">Tamaño del marcaje</span>
+                    <select
+                      value={size}
+                      onChange={(e) => setSize(e.target.value as PrintSize)}
+                      className="rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
+                    >
+                      {SIZES.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div className={`rounded-xl border p-3 ${backActive ? "border-brand bg-brand-light" : "border-border"}`}>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={backActive}
+                    onChange={(e) => setBackActive(e.target.checked)}
+                    className="h-4 w-4 accent-brand"
+                  />
+                  <span className="text-xs font-bold text-ink">Añadir marcaje detrás / otra cara</span>
+                </label>
+                {backActive && (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold text-ink-soft">Colores</span>
+                      <select
+                        value={backColors}
+                        onChange={(e) => setBackColors(Number(e.target.value))}
+                        className="rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
+                      >
+                        {[1, 2, 3].map((c) => (
+                          <option key={c} value={c}>
+                            {c} color{c > 1 ? "es" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold text-ink-soft">Tamaño del marcaje</span>
+                      <select
+                        value={backSize}
+                        onChange={(e) => setBackSize(e.target.value as PrintSize)}
+                        className="rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
+                      >
+                        {SIZES.map((s) => (
+                          <option key={s.value} value={s.value}>
+                            {s.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

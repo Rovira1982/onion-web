@@ -93,47 +93,47 @@ model Occasion {
 }
 
 model Product {
-  id           String            @id @default(uuid())
-  supplierId   String
-  supplier     Supplier          @relation(fields: [supplierId], references: [id])
-  supplierSku       String // rootmodel / código base del proveedor
-  name              String
-  description       String?
+  id                 String            @id @default(uuid())
+  supplierId         String
+  supplier           Supplier          @relation(fields: [supplierId], references: [id])
+  supplierSku        String // rootmodel / código base del proveedor
+  name               String
+  description        String?
   // Marca del fabricante (Valento, Roly, Kariban...) — distinta del
   // proveedor/distribuidor (supplier): un mismo proveedor (TopTex) puede
   // distribuir varias marcas. Null cuando el proveedor no la reporta (Cifra).
-  brand             String?
-  subcategory       String?
-  categoryId        String?
-  category          Category?         @relation(fields: [categoryId], references: [id])
-  basePrice         Decimal           @db.Decimal(10, 2)
-  material          String?
+  brand              String?
+  subcategory        String?
+  categoryId         String?
+  category           Category?         @relation(fields: [categoryId], references: [id])
+  basePrice          Decimal           @db.Decimal(10, 2)
+  material           String?
   engravingTechnique String?
-  stock             Int               @default(0)
+  stock              Int               @default(0)
   // Maestro de precios (Finanzas, 2026-09-30) — tramos de cantidad del
   // proveedor a nivel de modelo. Null = sin dato todavía (ver
   // incompleteData). Uds_caja de ROCK/LUA/DAN ya viene resuelta al máximo
   // por talla en el maestro, no hace falta lógica especial aquí.
-  unitsPerPack      Int?
-  unitsPerCase      Int?
-  minOrderQty       Int?
+  unitsPerPack       Int?
+  unitsPerCase       Int?
+  minOrderQty        Int?
   // Código propio cross-proveedor (prefijo ROL-/STA-/CIF-/TTX-/VAL- +
   // código del modelo) — soluciona que supplierModelCode solo sea único
   // dentro de la práctica actual, no por diseño (ver ProductVariant).
   // Sin @unique todavía: se añade en un paso aparte una vez cargado el
   // maestro completo, para no necesitar --accept-data-loss sobre una
   // columna que hoy está vacía en todas las filas.
-  supplierCode      String?
+  supplierCode       String?
   // Código recortado para FACTUSOL (máx. 13 caracteres) cuando
   // supplierCode no cabe — ver Codigos_largos.csv del maestro.
-  factusolCode      String?
+  factusolCode       String?
   // true = falta unitsPerPack/unitsPerCase en el maestro; la web debe usar
   // siempre el precio de unidad (regla de repliegue, nunca precio 0).
-  incompleteData    Boolean           @default(false)
-  lastSyncedAt DateTime          @default(now())
-  variants     ProductVariant[]
-  images       ProductImage[]
-  occasions    ProductOccasion[]
+  incompleteData     Boolean           @default(false)
+  lastSyncedAt       DateTime          @default(now())
+  variants           ProductVariant[]
+  images             ProductImage[]
+  occasions          ProductOccasion[]
 
   @@unique([supplierId, supplierSku])
   @@index([categoryId, supplierId])
@@ -141,24 +141,24 @@ model Product {
 }
 
 model ProductVariant {
-  id                String      @id @default(uuid())
-  productId         String
-  product           Product     @relation(fields: [productId], references: [id])
-  size              String?
-  color             String?
-  price             Decimal     @db.Decimal(10, 2)
+  id                 String              @id @default(uuid())
+  productId          String
+  product            Product             @relation(fields: [productId], references: [id])
+  size               String?
+  color              String?
+  price              Decimal             @db.Decimal(10, 2)
   // Maestro de precios — precio de venta (coste × 2) en tramo pack/caja.
   // Null cuando el modelo no tiene ese tramo (ver Product.unitsPerPack/Case).
-  pricePack         Decimal?    @db.Decimal(10, 2)
-  priceBox          Decimal?    @db.Decimal(10, 2)
+  pricePack          Decimal?            @db.Decimal(10, 2)
+  priceBox           Decimal?            @db.Decimal(10, 2)
   // Coste real del proveedor por tramo, 4 decimales (el maestro trae hasta
   // 5) — para desglose en pedidos/informes, nunca se muestra al cliente.
-  costUnit          Decimal?    @db.Decimal(10, 4)
-  costPack          Decimal?    @db.Decimal(10, 4)
-  costBox           Decimal?    @db.Decimal(10, 4)
-  stock             Int         @default(0)
-  supplierModelCode String      @unique // código real de esta variante en el proveedor (trazabilidad)
-  orderLines        OrderLine[]
+  costUnit           Decimal?            @db.Decimal(10, 4)
+  costPack           Decimal?            @db.Decimal(10, 4)
+  costBox            Decimal?            @db.Decimal(10, 4)
+  stock              Int                 @default(0)
+  supplierModelCode  String              @unique // código real de esta variante en el proveedor (trazabilidad)
+  orderLines         OrderLine[]
   supplierOrderLines SupplierOrderLine[]
 
   @@index([productId])
@@ -192,17 +192,17 @@ model ProductOccasion {
 }
 
 model User {
-  id               String   @id @default(uuid())
-  email            String   @unique
-  passwordHash     String?
-  name             String?
-  marketingConsent Boolean  @default(false)
-  role             UserRole @default(cliente)
+  id                      String          @id @default(uuid())
+  email                   String          @unique
+  passwordHash            String?
+  name                    String?
+  marketingConsent        Boolean         @default(false)
+  role                    UserRole        @default(cliente)
   // +1 en cada logout de admin; invalida cualquier token firmado antes de
   // ese momento (copiado o no) — parche de seguridad, Guardian P7, 2026-10-02.
-  sessionVersion   Int      @default(0)
-  createdAt        DateTime @default(now())
-  orders           Order[]
+  sessionVersion          Int             @default(0)
+  createdAt               DateTime        @default(now())
+  orders                  Order[]
   confirmedSupplierOrders SupplierOrder[]
 
   @@map("users")
@@ -259,31 +259,60 @@ model Order {
 // Una línea de pedido — equivalente a la hoja "Pedidos" del Excel del negocio:
 // permite nombre/talla individual por unidad (equipaciones de equipo).
 model OrderLine {
-  id               String          @id @default(uuid())
-  orderId          String
-  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productVariantId String?
-  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
-  quantity         Int
-  individualName   String?
-  individualNumber String? // dorsal
-  unitPrice        Decimal         @db.Decimal(10, 2)
+  id                  String             @id @default(uuid())
+  orderId             String
+  order               Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariantId    String?
+  productVariant      ProductVariant?    @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  quantity            Int
+  individualName      String?
+  individualNumber    String? // dorsal
+  unitPrice           Decimal            @db.Decimal(10, 2)
   // Desglose del precio de la línea — solo para informes/FactuSol, no se
   // muestra al cliente. garmentCost/markingCost en Decimal(10,2) porque son
   // precio de venta ya redondeado, no el coste proveedor (ver
   // ProductVariant.costUnit para eso).
-  garmentCost      Decimal?        @db.Decimal(10, 2)
-  markingCost      Decimal?        @db.Decimal(10, 2)
+  garmentCost         Decimal?           @db.Decimal(10, 2)
+  markingCost         Decimal?           @db.Decimal(10, 2)
   // "unidad" | "pack" | "caja" — qué tramo se aplicó a esta línea.
-  priceTier        String?
-  design           DesignConfig?
+  priceTier           String?
+  design              DesignConfig?
   // Tanda de pedido a proveedor que ya recogió esta línea — null hasta que
   // corre el batch runner (ver runBatch en supplier-batch-runner.ts). Una
   // OrderLine aporta siempre su cantidad entera a una única SupplierOrderLine.
   supplierOrderLineId String?
   supplierOrderLine   SupplierOrderLine? @relation(fields: [supplierOrderLineId], references: [id], onDelete: SetNull)
+  // Marcaje de la línea, una fila por zona activa (técnica + tamaño + colores).
+  // Hasta 2026-10-03 la técnica solo se usaba al calcular el precio y no se
+  // guardaba — el export a FactuSol no podía generar las líneas de marcaje.
+  marks               OrderLineMarking[]
 
   @@map("order_lines")
+}
+
+model OrderLineMarking {
+  id          String    @id @default(uuid())
+  orderLineId String
+  orderLine   OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  // "pecho" | "espalda" | "manga_izquierda" | "manga_derecha" | "manga"
+  zone        String
+  // "Serigrafia" | "DTF" | "Sublimacion" | "Vinilo" (ver Technique en pricing.ts)
+  technique   String
+  // "10x10" | "22x22" | "28x28" — null en serigrafía (la tarifa va por colores)
+  size        String?
+  // Solo serigrafía: 1, 2 o 3.
+  colors      Int?
+  // Tramo con el que markingUnitPrice calculó el precio (1, 5, 10, 25, 50,
+  // 100, 250, 500) y precio de marcaje por unidad SIN IVA de ese momento —
+  // el pedido es reproducible aunque cambie la tarifa. Ver marking-tariff.ts.
+  tierQty     Int
+  quantity    Int
+  unitPrice   Decimal   @db.Decimal(12, 2)
+  // Código de artículo de FactuSol (ej. DTF22_25); null en serigrafía <10 uds.
+  factusolCode String?
+
+  @@index([orderLineId])
+  @@map("order_line_markings")
 }
 
 // Pedido consolidado a un proveedor (canal de envío real — ver adapterKey),

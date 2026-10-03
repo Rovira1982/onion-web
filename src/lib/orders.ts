@@ -38,6 +38,18 @@ export type OrderDetail = {
     supplierSku: string | null;
     size: string;
     color: string;
+    // Zonas de marcaje guardadas con el pedido (vacío en pedidos anteriores
+    // al 2026-10-03, que solo tienen el precio de línea con el marcaje dentro).
+    marks: {
+      zone: string;
+      technique: string;
+      size: string | null;
+      colors: number | null;
+      tierQty: number;
+      quantity: number;
+      unitPrice: number;
+      factusolCode: string | null;
+    }[];
   }[];
 };
 
@@ -84,6 +96,7 @@ async function fetchOrderDetail(id: string): Promise<OrderDetail | null> {
           include: { product: { select: { name: true, factusolCode: true, supplierCode: true, supplierSku: true } } },
         },
         design: true,
+        marks: { orderBy: { id: "asc" } },
       },
     },
       discountCode: { select: { code: true } },
@@ -123,6 +136,16 @@ async function fetchOrderDetail(id: string): Promise<OrderDetail | null> {
       supplierSku: line.productVariant?.product.supplierSku ?? null,
       size: line.productVariant?.size ?? "",
       color: line.productVariant?.color ?? "",
+      marks: line.marks.map((m) => ({
+        zone: m.zone,
+        technique: m.technique,
+        size: m.size,
+        colors: m.colors,
+        tierQty: m.tierQty,
+        quantity: m.quantity,
+        unitPrice: parseFloat(m.unitPrice.toString()),
+        factusolCode: m.factusolCode,
+      })),
     })),
   };
 }

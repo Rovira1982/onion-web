@@ -6,6 +6,7 @@ import {
   buildCliente,
   buildPedido,
   buildLineas,
+  exportWarning,
   resolveFactusolClientCode,
   resolveFactusolDocNumber,
   markOrdersExported,
@@ -42,6 +43,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
   archive.append(Buffer.from(pcl), { name: "PCL.xlsx" });
   archive.append(Buffer.from(lpc), { name: "LPC.xlsx" });
+  const warning = exportWarning(order, order.lines);
+  if (warning) {
+    archive.append(Buffer.from(`AVISO — revisar antes de importar en FactuSol:\n\n${warning}\n`, "utf8"), {
+      name: "AVISO.txt",
+    });
+  }
   archive.finalize();
 
   const chunks: Buffer[] = [];

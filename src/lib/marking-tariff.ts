@@ -75,6 +75,33 @@ export function markingUnitPrice(
   return value === "consultar" ? null : value;
 }
 
+// Tramo (columna de la tarifa) que aplica a esta cantidad — el mismo que usa
+// markingUnitPrice. Se guarda en OrderLineMarking.tierQty para que el pedido
+// sea reproducible aunque la tarifa cambie.
+export function markingTierQty(quantity: number): number {
+  let tier: number = QUANTITY_TIERS[0];
+  for (const t of QUANTITY_TIERS) if (quantity >= t) tier = t;
+  return tier;
+}
+
+const FACTUSOL_PREFIX: Record<Technique, string> = { DTF: "DTF", Vinilo: "VIN", Sublimacion: "SUB", Serigrafia: "SERC" };
+
+// Código de artículo de FactuSol para una zona de marcaje (especificación de
+// Finanzas, 2026-10-03): DTF/VIN/SUB = {PRE}{lado del tamaño}_{tramo}
+// (DTF22_25), Serigrafía = SERC{colores}_{tramo} (SERC1_50). Serigrafía
+// por debajo de 10 uds es "consultar": no tiene código (null).
+export function markingFactusolCode(
+  technique: Technique,
+  zone: { size: PrintSize; colors: number },
+  tierQty: number
+): string | null {
+  if (technique === "Serigrafia") {
+    if (tierQty < 10) return null;
+    return `SERC${Math.min(3, Math.max(1, zone.colors))}_${tierQty}`;
+  }
+  return `${FACTUSOL_PREFIX[technique]}${zone.size.split("x")[0]}_${tierQty}`;
+}
+
 // One-time surcharge per order (not per line/unit) when the customer needs
 // help preparing their design — Finanzas' proposal, decided by the owner
 // 2026-09-30. DTF carries no surcharge even for non-vectorized art.

@@ -193,6 +193,18 @@ type LineaSource = {
   supplierSku: string | null;
   size: string;
   color: string;
+  garmentCost: number | null;
+  markingCost: number | null;
+  marks: {
+    zone: string;
+    technique: string;
+    size: string | null;
+    colors: number | null;
+    tierQty: number;
+    quantity: number;
+    unitPrice: number;
+    factusolCode: string | null;
+  }[];
 };
 
 // --- CLI.xlsx — Clientes ----------------------------------------------------
@@ -322,14 +334,61 @@ const LPC_HEADERS: Record<string, string> = {
 
 // La posición (col. C) reinicia en 1 por cada pedido/documento — son líneas
 // dentro de SU documento, no un correlativo global.
+const TECHNIQUE_LABEL: Record<string, string> = {
+  DTF: "DTF",
+  Vinilo: "Vinilo",
+  Sublimacion: "Sublimación",
+  Serigrafia: "Serigrafía",
+};
+const ZONE_LABEL: Record<string, string> = {
+  pecho: "delante",
+  espalda: "detrás",
+  manga: "manga",
+  manga_izquierda: "manga izq.",
+  manga_derecha: "manga der.",
+};
+const TIER_RANGE: Record<number, string> = {
+  1: "1-4",
+  5: "5-9",
+  10: "10-24",
+  25: "25-49",
+  50: "50-99",
+  100: "100-249",
+  250: "250-499",
+  500: "500+",
+};
+
+// Descripción de una línea de marcaje: la del artículo de la tarifa
+// ("DTF 22x22 cm 25-49 uds") más la zona. Máx. 50 caracteres.
+function markDescription(m: LineaSource["marks"][number]): string {
+  const tech = TECHNIQUE_LABEL[m.technique] ?? m.technique;
+  const spec = m.technique === "Serigrafia" ? `${m.colors ?? 1} col.` : `${m.size ?? ""} cm`;
+  const base = `${tech} ${spec} ${TIER_RANGE[m.tierQty] ?? m.tierQty} uds - ${ZONE_LABEL[m.zone] ?? m.zone}`;
+  return base.slice(0, 50);
+}
+
+// Precio de la línea de prenda tal y como sale en FactuSol: si la línea trae
+// zonas de marcaje guardadas, la prenda va SOLA (el marcaje sale en sus
+// propias líneas, si no se cobraría dos veces); si no las trae (pedidos
+// anteriores al 2026-10-03) se mantiene el precio guardado, que ya incluye
+// el marcaje, y se avisa en la descripción.
+function garmentLineUnitPrice(line: LineaSource): number {
+  if (line.marks.length === 0) return line.unitPrice;
+  const marksPerUnit = line.marks.reduce((sum, m) => sum + m.unitPrice, 0);
+  return Math.round((line.unitPrice - marksPerUnit) * 100) / 100;
+}
+
 function lineaRows(
   docNumber: number,
   lines: LineaSource[],
   shippingCost: number | undefined
 ): Record<string, string | number>[] {
-  const rows = lines.map((line, i) => {
-    const total = Math.round(line.unitPrice * line.quantity * 100) / 100;
-    const description = [line.productName, line.size, line.color].filter(Boolean).join(" ");
+  const rows: Record<string, string | number>[] = lines.map((line, i) => {
+    const unitPrice = garmentLineUnitPrice(line);
+    const total = Math.round(unitPrice * line.quantity * 100) / 100;
+    const description =
+      [line.productName, line.size, line.color].filter(Boolean).join(" ") +
+      (line.marks.length === 0 && (line.markingCost ?? 0) > 0 ? " (incluye marcaje)" : "");
     return {
       A: 1,
       B: docNumber,
@@ -337,17 +396,33 @@ function lineaRows(
       D: line.factusolArticleCode ?? line.supplierSku ?? "",
       E: description,
       F: line.quantity,
-      J: line.unitPrice,
+      J: unitPrice,
       K: total,
       L: line.quantity,
       M: 0,
     };
   });
+  for (const line of lines) {
+    for (const m of line.marks) {
+      rows.push({
+        A: 1,
+        B: docNumber,
+        C: rows.length + 1,
+        D: m.factusolCode ?? "",
+        E: markDescription(m),
+        F: m.quantity,
+        J: m.unitPrice,
+        K: Math.round(m.unitPrice * m.quantity * 100) / 100,
+        L: m.quantity,
+        M: 0,
+      });
+    }
+  }
   if (shippingCost) {
     rows.push({
       A: 1,
       B: docNumber,
-      C: lines.length + 1,
+      C: rows.length + 1,
       D: SHIPPING_ARTICLE,
       E: "Gastos de envío",
       F: 1,
@@ -358,6 +433,27 @@ function lineaRows(
     });
   }
   return rows;
+}
+
+// Comprobación pedida por Finanzas (2026-10-03): la suma de las líneas
+// exportadas (prendas + marcaje) debe igualar la base del pedido, o el
+// marcaje se estaría cobrando dos veces / faltaría. El envío se excluye: se
+// cobra con IVA incluido y va aparte en SRV-PORTES. Tolerancia de 2 céntimos
+// (los packs de precio cerrado ajustan céntimos en el total). Devuelve el
+// aviso a enseñar a Finanzas o null si cuadra.
+export function exportWarning(
+  order: { id: string; total: number; shippingCost: number; discountAmount: number },
+  lines: LineaSource[]
+): string | null {
+  const exported = lines.reduce((sum, line) => {
+    const garment = garmentLineUnitPrice(line) * line.quantity;
+    const marks = line.marks.reduce((s, m) => s + m.unitPrice * m.quantity, 0);
+    return sum + garment + marks;
+  }, 0);
+  const expected = (order.total - order.shippingCost) / 1.21 + order.discountAmount;
+  const diff = Math.round((exported - expected) * 100) / 100;
+  if (Math.abs(diff) <= 0.02) return null;
+  return `Pedido ${order.id.slice(0, 8)}: las líneas exportadas suman ${exported.toFixed(2)} € y la base del pedido es ${expected.toFixed(2)} € (diferencia ${diff.toFixed(2)} €). Avisar a Finanzas antes de importar en FactuSol.`;
 }
 
 export function buildLineas(

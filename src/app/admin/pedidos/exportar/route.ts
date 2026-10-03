@@ -7,6 +7,7 @@ import {
   buildClientesBulk,
   buildPedidosBulk,
   buildLineasBulk,
+  exportWarning,
   resolveFactusolClientCode,
   resolveFactusolDocNumber,
   listUnexportedOrderIds,
@@ -60,6 +61,12 @@ export async function GET(req: Request) {
   }
   archive.append(Buffer.from(pcl), { name: "PCL.xlsx" });
   archive.append(Buffer.from(lpc), { name: "LPC.xlsx" });
+  const warnings = orders.map((o) => exportWarning(o, o.lines)).filter((w): w is string => w !== null);
+  if (warnings.length > 0) {
+    archive.append(Buffer.from(`AVISO — revisar antes de importar en FactuSol:\n\n${warnings.join("\n")}\n`, "utf8"), {
+      name: "AVISO.txt",
+    });
+  }
   archive.finalize();
 
   const chunks: Buffer[] = [];
