@@ -1,7 +1,5 @@
 # Aviso Legal
 
-*Borrador — no es asesoría legal. Revisar con gestoría/abogado antes de publicar. Rellenar todos los campos [[ ]] antes de usar.*
-
 ## 1. Datos identificativos
 
 En cumplimiento del deber de información recogido en el artículo 10 de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y de Comercio Electrónico (LSSI-CE), se facilitan los siguientes datos: el titular de este sitio web es Josep Antoni Rovira Soler, con NIF 53214051D, y domicilio en Calle Huerto, 18, El Ràfol d'Almúnia (Alicante).

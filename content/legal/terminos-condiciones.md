@@ -1,7 +1,5 @@
 # Términos y Condiciones de Venta
 
-*Borrador — no es asesoría legal. Revisar con gestoría/abogado antes de publicar, especialmente la cláusula de desistimiento (punto 6).*
-
 ## 1. Identificación del vendedor
 
 Josep Antoni Rovira Soler, NIF 53214051D, domicilio en Calle Huerto, 18, El Ràfol d'Almúnia (Alicante), email info@onionandback.com.
