@@ -19,7 +19,9 @@ const PAGE_SIZE = 24;
 // al menos una foto. Excluirlo aquí en vez de poner stock a 0 a mano — la
 // siguiente sincronización de proveedor lo revertiría. Un producto a 0 €
 // se podría pedir gratis; uno sin foto no se puede vender.
-const VISIBLE = { stock: { gt: 0 }, basePrice: { gt: 0 }, images: { some: {} } } as const;
+// Y con al menos una variante: sin variantes no hay nada que añadir al
+// carrito (30 productos de Cifra estaban visibles así, 2026-10-03).
+const VISIBLE = { stock: { gt: 0 }, basePrice: { gt: 0 }, images: { some: {} }, variants: { some: {} } } as const;
 
 type DbProductWithRelations = {
   id: string;
