@@ -5,6 +5,7 @@ import ProductCard from "@/components/ProductCard";
 import ProductDetailClient from "@/components/ProductDetailClient";
 import { getProductBySlug, getProductsByCategorySlug, slugify } from "@/lib/products";
 import { getPack } from "@/lib/packs";
+import JsonLd from "@/components/JsonLd";
 
 export async function generateMetadata({
   params,
@@ -25,6 +26,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    alternates: { canonical: `/producto/${product.slug}` },
     openGraph: {
       title,
       description,
@@ -54,8 +56,40 @@ export default async function ProductoPage({
   const categorySlug = slugify(product.category);
   const related = (await getProductsByCategorySlug(categorySlug, 8)).filter((p) => p.slug !== product.slug).slice(0, 4);
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const productUrl = `${siteUrl}/producto/${product.slug}`;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: product.name,
+          url: productUrl,
+          ...(product.image && { image: product.image }),
+          ...(product.brand && { brand: { "@type": "Brand", name: product.brand } }),
+          category: product.category,
+          offers: {
+            "@type": "Offer",
+            url: productUrl,
+            priceCurrency: "EUR",
+            price: product.price.toFixed(2),
+            availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          },
+        }}
+      />
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Inicio", item: siteUrl },
+            { "@type": "ListItem", position: 2, name: product.category, item: `${siteUrl}/catalogo?categoria=${categorySlug}` },
+            { "@type": "ListItem", position: 3, name: product.name, item: productUrl },
+          ],
+        }}
+      />
       <nav className="text-xs text-ink-soft" aria-label="Migas de pan">
         <Link href="/" className="hover:text-brand">
           Inicio
