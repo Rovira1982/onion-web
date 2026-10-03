@@ -112,14 +112,14 @@ ${pay.text}
 Cuando recibamos el pago nos ponemos manos a la obra.
 
 Un abrazo,
-El equipo de Onion and Back${emailFooter().text}`;
+El equipo de Onion and Back 🐱👍${emailFooter().text}`;
   const html = wrapHtml(`<p>Hola, ¡gracias por tu pedido!</p>
 <p>Hemos recibido tu pedido <strong>nº ${n}</strong>. Este es el resumen:</p>
 <ul style="padding-left:18px">${s.html}</ul>
 <p>${s.totals.map(escapeHtml).join("<br>")}</p>
 <p>${pay.html}</p>
 <p>Cuando recibamos el pago nos ponemos manos a la obra.</p>
-<p>Un abrazo,<br>El equipo de Onion and Back</p>`);
+<p>Un abrazo,<br>El equipo de Onion and Back 🐱👍</p>`);
   return { subject: `Hemos recibido tu pedido nº ${n}`, text, html };
 }
 
@@ -132,11 +132,11 @@ Hemos recibido el pago de tu pedido nº ${n} y nos ponemos manos a la obra.
 Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), responde a este correo y lo adjuntas.
 
 Un abrazo,
-El equipo de Onion and Back${emailFooter().text}`;
+El equipo de Onion and Back 🐱👍${emailFooter().text}`;
   const html = wrapHtml(`<p>Hola, ¡pago recibido!</p>
 <p>Hemos recibido el pago de tu pedido <strong>nº ${n}</strong> y nos ponemos manos a la obra.</p>
 <p>Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), responde a este correo y lo adjuntas.</p>
-<p>Un abrazo,<br>El equipo de Onion and Back</p>`);
+<p>Un abrazo,<br>El equipo de Onion and Back 🐱👍</p>`);
   return { subject: "Pago recibido, nos ponemos manos a la obra", text, html };
 }
 
