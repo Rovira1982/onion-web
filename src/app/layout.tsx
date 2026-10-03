@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import CookieBanner from "@/components/CookieBanner";
 import MetaPixel from "@/components/MetaPixel";
 import WhatsAppFloatingButton from "@/components/WhatsAppFloatingButton";
+import JsonLd from "@/components/JsonLd";
 import { CartProvider } from "@/lib/cart";
 
 const nunitoSans = Nunito_Sans({
@@ -41,6 +42,7 @@ export const metadata: Metadata = {
   },
   description:
     "Regalos de empresa y artículos publicitarios personalizados con tu logo. Rapidez, calidad y trato cercano en cada pedido.",
+  alternates: { canonical: "/" },
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
@@ -67,6 +69,16 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <CookieBanner />
         <MetaPixel />
         <WhatsAppFloatingButton />
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "Onion and Back",
+            url: siteUrl,
+            email: "info@onionandback.com",
+            telephone: "+34616114095",
+          }}
+        />
       </body>
     </html>
   );

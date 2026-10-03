@@ -59,7 +59,20 @@ export async function generateMetadata({
   // "faceted navigation" — Operaciones/SEO, 2026-10-01).
   const skipIndex = !!q || (!!page && parseInt(page, 10) > 1);
 
-  return { title, description, robots: skipIndex ? { index: false, follow: true } : undefined };
+  // Canónica: un solo filtro (categoría, ocasión, marca u outlet) es su propia
+  // página; búsqueda, orden y paginación son variantes y apuntan a ella.
+  const filter = activeOccasion
+    ? `ocasion=${activeOccasion.slug}`
+    : activeCategory
+      ? `categoria=${activeCategory.slug}`
+      : activeBrand
+        ? `marca=${activeBrand.slug}`
+        : isOutlet
+          ? "outlet=1"
+          : "";
+  const canonical = filter ? `/catalogo?${filter}` : "/catalogo";
+
+  return { title, description, alternates: { canonical }, robots: skipIndex ? { index: false, follow: true } : undefined };
 }
 
 function buildPageHref(
