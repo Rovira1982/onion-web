@@ -20,6 +20,7 @@ config({ path: ".env.local" });
 import { prisma } from "./_client";
 import { cleanName, cleanDescription } from "./text-clean";
 import { slugify } from "../src/lib/product-format";
+import { loginMakito } from "./makito-api";
 
 const BASE_URL = process.env.MAKITO_BASE_URL ?? "https://apis.makito.es";
 
@@ -32,18 +33,6 @@ function parseArgs() {
   };
 }
 
-async function login(env: "test" | "prod"): Promise<string> {
-  const clientId = env === "test" ? process.env.MAKITO_TEST_CLIENT_ID : process.env.MAKITO_CLIENT_ID;
-  const clientSecret = env === "test" ? process.env.MAKITO_TEST_CLIENT_SECRET : process.env.MAKITO_CLIENT_SECRET;
-  const res = await fetch(`${BASE_URL}/access/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-  if (!res.ok) throw new Error(`Login falló: ${res.status} ${await res.text()}`);
-  const { token } = (await res.json()) as { token: string };
-  return token;
-}
 
 type MakitoVariant = {
   variant_reference: string;
@@ -220,7 +209,7 @@ async function main() {
   const { limit, env } = parseArgs();
   console.log(`Modo: ${env === "test" ? "cuenta de TEST" : "cuenta de PRODUCCIÓN"} · límite: ${limit ?? "sin límite (catálogo completo)"}\n`);
 
-  const token = await login(env);
+  const token = await loginMakito(env);
   console.log("Login OK.\n");
 
   const [catalogRes, priceRes] = await Promise.all([

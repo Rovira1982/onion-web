@@ -14,8 +14,8 @@
 // Run with: npx tsx prisma/export-toptex-financiero.ts
 import { config } from "dotenv";
 config({ path: ".env.local" });
-import { writeFileSync } from "fs";
 import { prisma } from "./_client";
+import { csvEscape, writeCsv } from "./_util";
 
 
 const BASE_URL = process.env.TOPTEX_BASE_URL ?? "https://api.toptex.io";
@@ -72,13 +72,6 @@ async function fetchAllPages<T>(pathBase: string, itemsKey = "items"): Promise<T
   return all;
 }
 
-function csvEscape(value: unknown): string {
-  const s = value === null || value === undefined ? "" : String(value);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
 
 async function main() {
   console.log("Descargando precios de TopTex (paginado)...\n");
@@ -108,7 +101,7 @@ async function main() {
   }
 
   const outPath = "E:\\onion\\26\\finanzas\\proveedores\\toptex-costes-live.csv";
-  writeFileSync(outPath, "\uFEFF" + rows.join("\n"), "utf-8");
+  writeCsv(outPath, rows);
   console.log(`Escrito: ${outPath} (${rows.length - 1} filas)`);
   await prisma.$disconnect();
 }

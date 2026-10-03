@@ -142,6 +142,16 @@ async function main() {
       // tiempo total contra la base de datos remota, visto en directo con
       // el import de Roly).
       const id = `cifra-${supplierSku}-${color}`;
+      // Si OTRA fila del producto ya tiene esta URL (p. ej. la foto general
+      // de una sincronización anterior, o la de otro color), no se crea una
+      // segunda con la misma URL — era la causa de las fotos repetidas que
+      // reaparecían en cada sincronización (35 productos, 2026-10-03). A la
+      // fila existente sin color se le pone este color.
+      const sameUrl = await prisma.productImage.findFirst({ where: { productId: product.id, url, id: { not: id } } });
+      if (sameUrl) {
+        if (sameUrl.color === null) await prisma.productImage.update({ where: { id: sameUrl.id }, data: { color } });
+        continue;
+      }
       await prisma.productImage.upsert({
         where: { id },
         update: { url, color },

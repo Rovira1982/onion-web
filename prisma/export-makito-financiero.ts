@@ -9,24 +9,12 @@
 //
 // Run with: npx tsx prisma/export-makito-financiero.ts
 import { config } from "dotenv";
+import { csvEscape, writeCsv } from "./_util";
+import { loginMakito } from "./makito-api";
 config({ path: ".env.local" });
-import { writeFileSync } from "fs";
 
 const BASE_URL = process.env.MAKITO_BASE_URL ?? "https://apis.makito.es";
 
-async function login(): Promise<string> {
-  const res = await fetch(`${BASE_URL}/access/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      clientId: process.env.MAKITO_TEST_CLIENT_ID,
-      clientSecret: process.env.MAKITO_TEST_CLIENT_SECRET,
-    }),
-  });
-  if (!res.ok) throw new Error(`Login falló: ${res.status}`);
-  const { token } = (await res.json()) as { token: string };
-  return token;
-}
 
 type MakitoVariant = {
   variant_reference: string;
@@ -54,17 +42,10 @@ function makitoMaterialCode(productRef: string, v: MakitoVariant): string {
   return v.variant_reference;
 }
 
-function csvEscape(value: unknown): string {
-  const s = value === null || value === undefined ? "" : String(value);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
 
 async function main() {
   console.log("Modo: cuenta de TEST (misma que se usó en la Fase 1 de importación — ver aviso en el mensaje al financiero)\n");
-  const token = await login();
+  const token = await loginMakito("test");
 
   const [catalogRes, priceRes] = await Promise.all([
     fetch(`${BASE_URL}/catalog/files?format=JSON&lang=es`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -168,7 +149,7 @@ async function main() {
   }
 
   const outPath = "E:\\onion\\26\\finanzas\\proveedores\\makito-export.csv";
-  writeFileSync(outPath, "\uFEFF" + rows.join("\n"), "utf-8");
+  writeCsv(outPath, rows);
   console.log(`Escrito: ${outPath} (${rows.length - 1} filas de datos, ${productsWithPricing} variantes con tarifa, ${productsWithoutPricing} productos sin fila de precio propia)`);
 }
 

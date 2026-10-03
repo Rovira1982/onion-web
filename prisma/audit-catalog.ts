@@ -60,10 +60,6 @@ function colorKey(s: string): string {
     .replace(/[^a-z0-9]+/g, "");
 }
 
-function nameKey(s: string): string {
-  return colorKey(s);
-}
-
 type AuditProduct = {
   id: string;
   name: string;
@@ -71,7 +67,7 @@ type AuditProduct = {
   basePrice: { toString(): string };
   supplierSku: string;
   supplier: { name: string };
-  variants: { id: string; size: string | null; color: string | null; price: { toString(): string }; stock: number }[];
+  variants: { id: string; size: string | null; color: string | null; price: { toString(): string } }[];
   images: { id: string; url: string; color: string | null; position: number }[];
 };
 
@@ -103,7 +99,7 @@ async function auditProduct(p: AuditProduct) {
   if (/\b(undefined|null|NaN)\b/.test(p.name) || (p.description && /\b(undefined|NaN)\b/.test(p.description))) {
     flag("c7", sup, "texto con 'undefined'/'null'/'NaN'", label);
   }
-  const nk = nameKey(p.name);
+  const nk = colorKey(p.name);
   if (nk) {
     const list = namesSeen.get(nk) ?? [];
     list.push({ id: p.id, supplier: sup, sku: p.supplierSku });
@@ -149,8 +145,7 @@ async function auditProduct(p: AuditProduct) {
     else if (/[|\\_]|\d{4,}|talla/i.test(sq))
       flag("c1", sup, "color con caracteres/dígitos raros", `${label} → "${sq}"`);
   }
-  const needsColorSquash = p.variants.some((v) => v.color != null && squash(v.color) !== v.color);
-  if (FIX && needsColorSquash) {
+  if (FIX) {
     for (const v of p.variants) {
       if (v.color != null && squash(v.color) !== v.color) {
         await prisma.productVariant.update({ where: { id: v.id }, data: { color: squash(v.color) } });
@@ -175,27 +170,11 @@ async function auditProduct(p: AuditProduct) {
     flag("c2", sup, "algunas variantes sin color (otras sí)", label);
   if (p.variants.length === 0) flag("c2", sup, "producto visible sin ninguna variante", label);
 
-  // ---- C4 huérfanas: intenta casar por normalización (fix seguro) ----
+  // ---- C4 huérfanas: foto cuyo color no casa con ninguna variante ----
   const variantColors = [...new Set(p.variants.map((v) => v.color).filter((c): c is string => !!c))];
-  const variantByKey = new Map<string, string[]>();
-  for (const c of variantColors) {
-    const k = colorKey(c);
-    variantByKey.set(k, [...(variantByKey.get(k) ?? []), c]);
-  }
   const validSet = new Set(variantColors);
   for (const img of p.images) {
-    if (!img.color || validSet.has(img.color)) continue;
-    const candidates = variantByKey.get(colorKey(img.color));
-    if (candidates && candidates.length === 1) {
-      flag("c4", sup, "foto con color casi igual (mayúsculas/acentos)", `${label} "${img.color}" → "${candidates[0]}"`);
-      if (FIX) {
-        await prisma.productImage.update({ where: { id: img.id }, data: { color: candidates[0] } });
-        markFixed("c4", "color de foto realineado con la variante");
-        img.color = candidates[0];
-      }
-    } else {
-      flag("c4", sup, "foto huérfana sin color equivalente", `${label} "${img.color}"`);
-    }
+    if (img.color && !validSet.has(img.color)) flag("c4", sup, "foto huérfana (color sin variante)", `${label} "${img.color}"`);
   }
 
   // ---- C3 duplicadas ----
@@ -260,7 +239,7 @@ async function main() {
         basePrice: true,
         supplierSku: true,
         supplier: { select: { name: true } },
-        variants: { select: { id: true, size: true, color: true, price: true, stock: true } },
+        variants: { select: { id: true, size: true, color: true, price: true } },
         images: { select: { id: true, url: true, color: true, position: true } },
       },
     });

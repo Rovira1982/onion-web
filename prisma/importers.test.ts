@@ -36,3 +36,23 @@ describe("tallas de Makito escritas con otro nombre", () => {
     expect(parseColorLabel("Dretius", "Sudadera Dretius Gris L", "L")).toBe("Gris");
   });
 });
+
+describe("helpers compartidos de CSV", () => {
+  it("csvEscape protege comas, comillas y saltos de línea", async () => {
+    const { csvEscape } = await import("./_util");
+    expect(csvEscape("a,b")).toBe('"a,b"');
+    expect(csvEscape('di "hola"')).toBe('"di ""hola"""');
+    expect(csvEscape(null)).toBe("");
+    expect(csvEscape(3.5)).toBe("3.5");
+  });
+
+  it("writeCsv escribe con BOM y saltos de línea \n, igual que antes", async () => {
+    const { writeCsv } = await import("./_util");
+    const { readFileSync, mkdtempSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const file = join(mkdtempSync(join(tmpdir(), "csv-")), "x.csv");
+    writeCsv(file, ["a,b", "1,2"]);
+    expect(readFileSync(file).toString("utf8")).toBe("﻿a,b\n1,2");
+  });
+});

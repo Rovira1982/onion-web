@@ -15,6 +15,8 @@ config({ path: ".env.local" });
 import { prisma } from "./_client";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { fallbackBoilerplate, makitoMaterialCode, parseColorLabel, sizeLabelFor } from "./import-makito";
+import { sleep } from "./_util";
+import { loginMakito } from "./makito-api";
 
 const BASE_URL = process.env.MAKITO_BASE_URL ?? "https://apis.makito.es";
 
@@ -39,24 +41,12 @@ function parseArgs() {
   };
 }
 
-async function login(env: "test" | "prod"): Promise<string> {
-  const clientId = env === "test" ? process.env.MAKITO_TEST_CLIENT_ID : process.env.MAKITO_CLIENT_ID;
-  const clientSecret = env === "test" ? process.env.MAKITO_TEST_CLIENT_SECRET : process.env.MAKITO_CLIENT_SECRET;
-  const res = await fetch(`${BASE_URL}/access/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-  if (!res.ok) throw new Error(`Login falló: ${res.status} ${await res.text()}`);
-  const { token } = (await res.json()) as { token: string };
-  return token;
-}
 
 let cachedToken: string | null = null;
 function makeGetToken(env: "test" | "prod") {
   return async (forceRefresh = false): Promise<string> => {
     if (cachedToken && !forceRefresh) return cachedToken;
-    cachedToken = await login(env);
+    cachedToken = await loginMakito(env);
     return cachedToken;
   };
 }
@@ -127,9 +117,6 @@ async function downloadAndStore(
   return `/api/uploads/${key}`;
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function slugifyColor(input: string) {
   return input

@@ -22,25 +22,13 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { prisma } from "./_client";
+import { loginMakito } from "./makito-api";
 
 const BASE_URL = process.env.MAKITO_BASE_URL ?? "https://apis.makito.es";
 
-async function login(): Promise<string> {
-  const res = await fetch(`${BASE_URL}/access/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      clientId: process.env.MAKITO_TEST_CLIENT_ID,
-      clientSecret: process.env.MAKITO_TEST_CLIENT_SECRET,
-    }),
-  });
-  if (!res.ok) throw new Error(`Login falló: ${res.status} ${await res.text()}`);
-  const { token } = (await res.json()) as { token: string };
-  return token;
-}
 
 async function main() {
-  const token = await login();
+  const token = await loginMakito("test");
   const res = await fetch(`${BASE_URL}/catalog/files?format=JSON&lang=es`, {
     headers: { Authorization: `Bearer ${token}` },
   });

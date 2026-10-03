@@ -11,20 +11,13 @@
 //
 // Run with: npx tsx prisma/export-valento-financiero.ts
 import { config } from "dotenv";
+import { csvEscape, writeCsv } from "./_util";
 config({ path: ".env.local" });
-import { writeFileSync } from "fs";
 
 const BASE_URL = process.env.VALENTO_BASE_URL ?? "https://www.valento.es/rest";
 const PAGE_SIZE = 50;
 const PAGE_LIMIT = 20;
 
-function csvEscape(value: unknown): string {
-  const s = value === null || value === undefined ? "" : String(value);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
 
 async function main() {
   const header = ["article_ref", "cref", "color_ref", "size_ref", "net_price", "suggested_retail_price", "stock"];
@@ -57,7 +50,7 @@ async function main() {
   }
 
   const outPath = "E:\\onion\\26\\finanzas\\proveedores\\valento-costes-live.csv";
-  writeFileSync(outPath, "\uFEFF" + rows.join("\n"), "utf-8");
+  writeCsv(outPath, rows);
   console.log(`\nEscrito: ${outPath} (${rows.length - 1} filas)`);
 }
 

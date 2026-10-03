@@ -10,8 +10,8 @@
 //
 // Run with: npx tsx prisma/export-cifra-financiero.ts
 import { config } from "dotenv";
+import { csvEscape, writeCsv } from "./_util";
 config({ path: ".env.local" });
-import { writeFileSync } from "fs";
 
 type CifraApiItem = {
   model: string;
@@ -21,13 +21,6 @@ type CifraApiItem = {
   quantity: string;
 };
 
-function csvEscape(value: unknown): string {
-  const s = value === null || value === undefined ? "" : String(value);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
 
 async function main() {
   const token = process.env.CIFRA_API_TOKEN;
@@ -49,7 +42,7 @@ async function main() {
   }
 
   const outPath = "E:\\onion\\26\\finanzas\\proveedores\\cifra-costes-live.csv";
-  writeFileSync(outPath, "\uFEFF" + rows.join("\n"), "utf-8");
+  writeCsv(outPath, rows);
   console.log(`Escrito: ${outPath} (${rows.length - 1} filas)`);
 }
 

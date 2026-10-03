@@ -41,6 +41,7 @@ import { join } from "path";
 import { prisma } from "./_client";
 import { cleanName, cleanDescription } from "./text-clean";
 import { slugify } from "../src/lib/product-format";
+import { sleep } from "./_util";
 
 const W_USU = "9976051";
 const BASE_URL = "https://info.catapendix.es/cgi-vel/encender";
@@ -54,9 +55,6 @@ function parseArgs() {
   };
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 // El JSON que devuelve la API no es válido JSON estricto — comprobado en
 // directo: w-stock.pro/w-tarifa.pro mandan `"product":01010101` (número

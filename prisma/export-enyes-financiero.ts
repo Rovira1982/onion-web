@@ -10,8 +10,8 @@
 //
 // Run with: npx tsx prisma/export-enyes-financiero.ts
 import { config } from "dotenv";
+import { csvEscape, writeCsv, sleep } from "./_util";
 config({ path: ".env.local" });
-import { writeFileSync } from "fs";
 
 const W_USU = "9976051";
 const BASE_URL = "https://info.catapendix.es/cgi-vel/encender";
@@ -43,17 +43,7 @@ type EnyesTarifaRow = {
   combinations: Record<string, { rates: Record<string, { price: number; from: number }> }>;
 };
 
-function csvEscape(value: unknown): string {
-  const s = value === null || value === undefined ? "" : String(value);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function main() {
   const catalog = await fetchLatin1Json<{ products: string[] }>(`${BASE_URL}/w-catalogo.pro?W-USU=${W_USU}`);
@@ -128,7 +118,7 @@ async function main() {
   }
 
   const outPath = "E:\\onion\\26\\finanzas\\proveedores\\enyes-export.csv";
-  writeFileSync(outPath, "\uFEFF" + rows.join("\n"), "utf-8");
+  writeCsv(outPath, rows);
   console.log(`\nEscrito: ${outPath} (${rows.length - 1} filas de datos, ${familiesDone} familias, ${familiesFailed} fallos)`);
 }
 
