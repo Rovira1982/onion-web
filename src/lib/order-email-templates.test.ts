@@ -39,6 +39,16 @@ describe("correos de pedido", () => {
     expect(buildOrderConfirmation({ ...order, paymentMethod: "tarjeta" }).text).not.toContain("días naturales");
   });
 
+  it("con el total que calcula el checkout, el IVA sale 21 % de la base", () => {
+    // Misma fórmula que crearPedido: (base − descuento) × 1,21 + envío.
+    const base = 24;
+    const total = Math.round((base * 1.21 + 6) * 100) / 100; // 35,04
+    const m = buildOrderConfirmation({ ...order, total, shippingCost: 6 });
+    expect(m.text).toContain("Base imponible: 24,00 €");
+    expect(m.text).toContain("IVA (21 %): 5,04 €");
+    expect(m.text).toContain("Total: 35,04 €");
+  });
+
   it("los tres correos llevan el pie legal", () => {
     for (const m of [buildOrderConfirmation(order), buildPaymentReceived(order), buildNewOrderNotice(order, "u")]) {
       expect(m.text).toContain("NIF 53214051D");
