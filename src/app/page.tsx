@@ -409,10 +409,10 @@ export default async function Home() {
             Cuéntanos qué necesitas y te preparamos un presupuesto sin compromiso en menos de 24 horas.
           </p>
           <Link
-            href="/presupuesto"
+            href="/contacto"
             className="mt-2 cursor-pointer rounded-full bg-ink px-7 py-3 font-display text-sm font-bold text-white transition-colors hover:bg-black"
           >
-            Calcula tu presupuesto
+            Pide tu presupuesto
           </Link>
         </div>
       </section>

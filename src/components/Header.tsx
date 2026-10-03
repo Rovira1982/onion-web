@@ -8,7 +8,6 @@ const NAV_LINKS = [
   // visibilidad, calzado de seguridad, EPI...) que hasta ahora no tenía
   // sitio en la navegación — petición directa del dueño, 2026-09-30.
   { href: "/catalogo?ocasion=ropa-laboral", label: "Ropa Laboral" },
-  { href: "/presupuesto", label: "Presupuesto" },
   { href: "/#garantia", label: "Garantía" },
   { href: "/contacto", label: "Contacto" },
 ];
@@ -56,7 +55,7 @@ export default function Header() {
 
         <div className="flex shrink-0 items-center gap-3">
           <Link
-            href="/presupuesto"
+            href="/contacto"
             className="hidden rounded-full bg-brand px-5 py-2.5 font-display text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-dark sm:inline-flex sm:items-center"
           >
             Pide presupuesto
@@ -85,7 +84,7 @@ export default function Header() {
                 </Link>
               ))}
               <Link
-                href="/presupuesto"
+                href="/contacto"
                 className="mt-2 rounded-full bg-brand px-3 py-2.5 text-center font-display text-sm font-bold text-white"
               >
                 Pide presupuesto

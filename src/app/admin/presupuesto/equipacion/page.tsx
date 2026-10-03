@@ -170,7 +170,7 @@ export default function EquipacionPresupuestoPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-      <Link href="/presupuesto" className="text-xs font-semibold text-ink-soft hover:text-brand">
+      <Link href="/admin/presupuesto" className="text-xs font-semibold text-ink-soft hover:text-brand">
         ← Cambiar tipo de presupuesto
       </Link>
       <span className="mt-4 block font-display text-xs font-bold uppercase tracking-wide text-brand">

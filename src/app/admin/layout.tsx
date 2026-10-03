@@ -20,6 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/codigos" className="text-ink hover:text-brand">Códigos</Link>
             <Link href="/admin/promociones" className="text-ink hover:text-brand">Promociones</Link>
             <Link href="/admin/ocasiones" className="text-ink hover:text-brand">Ocasiones</Link>
+            <Link href="/admin/presupuesto" className="text-ink hover:text-brand">Presupuestos</Link>
           </nav>
           <span className="hidden text-xs text-ink-soft sm:inline">Conectado como {user.email}</span>
           <form action={logoutAdmin}>

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const OPTIONS = [
   {
-    href: "/presupuesto/regalo",
+    href: "/admin/presupuesto/regalo",
     label: "Regalo",
     title: "Regalo o artículo promocional",
     description:
@@ -10,7 +10,7 @@ const OPTIONS = [
     cta: "Calcular regalo promocional",
   },
   {
-    href: "/presupuesto/equipacion",
+    href: "/admin/presupuesto/equipacion",
     label: "Equipo",
     title: "Equipación de equipo o uniformes",
     description:

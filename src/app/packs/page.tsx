@@ -90,8 +90,8 @@ export default async function PacksPage() {
 
       <p className="mt-3 text-center text-xs text-ink-soft">
         ¿Necesitas otra cantidad, técnica o prenda?{" "}
-        <Link href="/presupuesto" className="font-semibold text-brand hover:text-brand-dark">
-          Calcula tu presupuesto a medida
+        <Link href="/contacto" className="font-semibold text-brand hover:text-brand-dark">
+          Pídenos un presupuesto a medida
         </Link>
         .
       </p>
