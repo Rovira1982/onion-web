@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { archiveFile } from "@/lib/storage";
 import { setFactusolClientCode } from "@/lib/factusol";
 import { canMoveToStatus, isOrderStatus } from "@/lib/order-status";
-import { sendPaymentReceivedEmail } from "@/lib/order-emails";
+import { sendPaymentReceivedEmail, sendStatusChangeEmail } from "@/lib/order-emails";
 
 // Único punto de entrada para marcar un pedido como pagado — hoy no
 // cobramos online (se manda el enlace de pago por email), así que esto es
@@ -64,16 +64,18 @@ export async function actualizarCodigoFactusol(nif: string, code: number): Promi
 // Cambia el estado del pedido (diseño, aprobación, producción, entregado...).
 // El cobro es aparte (marcarPedidoPagado): aquí no se toca paymentStatus, pero
 // un pedido sin pagar no puede avanzar de "pendiente de pago".
-export async function cambiarEstadoPedido(orderId: string, status: string): Promise<{ ok: true } | { error: string }> {
+export async function cambiarEstadoPedido(orderId: string, status: string, notify = true): Promise<{ ok: true } | { error: string }> {
   await requireAdmin();
   if (!isOrderStatus(status)) return { error: "Estado no válido." };
 
-  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { paymentStatus: true } });
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { paymentStatus: true, status: true } });
   if (!order) return { error: "Pedido no encontrado." };
   if (!canMoveToStatus(order.paymentStatus, status)) {
     return { error: "El pedido no está pagado: márcalo como pagado antes de avanzarlo." };
   }
 
   await prisma.order.update({ where: { id: orderId }, data: { status } });
+  // Aviso al cliente solo si el estado cambia de verdad y se ha dejado marcada la casilla.
+  if (notify && order.status !== status) await sendStatusChangeEmail(orderId, status);
   return { ok: true };
 }

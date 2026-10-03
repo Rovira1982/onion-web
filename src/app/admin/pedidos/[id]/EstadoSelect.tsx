@@ -10,11 +10,12 @@ export default function EstadoSelect({ orderId, current }: { orderId: string; cu
   const [value, setValue] = useState(current);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
+  const [notify, setNotify] = useState(true);
 
   function save() {
     setError("");
     startTransition(async () => {
-      const result = await cambiarEstadoPedido(orderId, value);
+      const result = await cambiarEstadoPedido(orderId, value, notify);
       if ("error" in result) {
         setError(result.error);
         setValue(current);
@@ -47,6 +48,10 @@ export default function EstadoSelect({ orderId, current }: { orderId: string; cu
           {pending ? "Guardando…" : "Guardar"}
         </button>
       </div>
+      <label className="mt-2 flex items-center gap-2 text-xs text-ink-soft">
+        <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+        Avisar al cliente por correo
+      </label>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
