@@ -96,6 +96,19 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               <tr key={line.id} className="border-b border-border">
                 <td className="px-4 py-2 text-ink">
                   {line.productName}
+                  {line.marks.length > 0 && (
+                    <ul className="mt-1 space-y-0.5 text-xs text-ink-soft">
+                      {line.marks.map((m) => (
+                        <li key={m.zone}>
+                          <span className="font-semibold text-ink">{m.zone.replace("_", " ")}</span> · {m.technique}
+                          {m.size ? ` ${m.size}` : m.colors ? ` ${m.colors} col.` : ""} · tramo {m.tierQty}+ ·{" "}
+                          <span className={m.colorName ? "font-semibold text-brand-dark" : ""}>
+                            {m.colorName ? `color: ${m.colorName}` : "color sin indicar"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {line.previewImageUrl && (
                     <div className="mt-1">
                       <ArchivarDisenoButton orderLineId={line.id} />

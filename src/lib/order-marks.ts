@@ -1,6 +1,16 @@
 import type { QuoteInput, PrintSize } from "./pricing";
 import { markingUnitPrice, markingTierQty, markingFactusolCode } from "./marking-tariff";
 
+// Color de marcaje que el cliente indicó por zona (texto libre del selector).
+export type MarkColors = Partial<Record<"pecho" | "espalda" | "manga_izquierda" | "manga_derecha", string>>;
+
+// Dato del navegador: se recorta y se acepta como texto, nunca interviene en
+// el precio.
+function cleanColor(value: string | undefined): string | null {
+  const v = value?.trim().slice(0, 40);
+  return v ? v : null;
+}
+
 export type MarkRow = {
   zone: string;
   technique: string;
@@ -10,6 +20,7 @@ export type MarkRow = {
   quantity: number;
   unitPrice: number;
   factusolCode: string | null;
+  colorName: string | null;
 };
 
 // Una fila por zona activa (las dos mangas van separadas) con la técnica,
@@ -22,7 +33,8 @@ export function buildMarkRows(
   marking: QuoteInput,
   design: { markings: Partial<Record<string, unknown>> } | null,
   lineQuantity: number,
-  groupQuantity: number
+  groupQuantity: number,
+  markColors: MarkColors = {}
 ): MarkRow[] {
   const tierQty = markingTierQty(groupQuantity);
   const isSerigrafia = marking.technique === "Serigrafia";
@@ -38,6 +50,7 @@ export function buildMarkRows(
       quantity: lineQuantity,
       unitPrice,
       factusolCode: markingFactusolCode(marking.technique, z, tierQty),
+      colorName: cleanColor(markColors[zone as keyof MarkColors] ?? (zone === "manga" ? markColors.manga_izquierda ?? markColors.manga_derecha : undefined)),
     };
   };
 

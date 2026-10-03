@@ -106,6 +106,7 @@ export default function CheckoutPage() {
         marking: i.marking,
         design: i.design,
         designGroupId: i.designGroupId,
+        markColors: i.markColors,
         packCode: i.packCode,
       })),
       invoiceName,

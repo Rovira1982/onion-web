@@ -204,6 +204,7 @@ type LineaSource = {
     quantity: number;
     unitPrice: number;
     factusolCode: string | null;
+    colorName: string | null;
   }[];
 };
 
@@ -364,7 +365,9 @@ function markDescription(m: LineaSource["marks"][number]): string {
   const tech = TECHNIQUE_LABEL[m.technique] ?? m.technique;
   const spec = m.technique === "Serigrafia" ? `${m.colors ?? 1} col.` : `${m.size ?? ""} cm`;
   const base = `${tech} ${spec} ${TIER_RANGE[m.tierQty] ?? m.tierQty} uds - ${ZONE_LABEL[m.zone] ?? m.zone}`;
-  return base.slice(0, 50);
+  // El color que pidió el cliente va al final si cabe en los 50 caracteres.
+  const withColor = m.colorName ? `${base} (${m.colorName.toLowerCase()})` : base;
+  return (withColor.length <= 50 ? withColor : base).slice(0, 50);
 }
 
 // Precio de la línea de prenda tal y como sale en FactuSol: si la línea trae

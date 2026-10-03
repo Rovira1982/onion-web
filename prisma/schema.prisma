@@ -310,6 +310,10 @@ model OrderLineMarking {
   unitPrice   Decimal   @db.Decimal(12, 2)
   // Código de artículo de FactuSol (ej. DTF22_25); null en serigrafía <10 uds.
   factusolCode String?
+  // Color del marcaje que indicó el cliente (ej. "Blanco") — producción lo
+  // necesita para no estampar un logo blanco sobre prenda blanca. Null si no
+  // lo indicó o la técnica no lo pide (sublimación).
+  colorName   String?
 
   @@index([orderLineId])
   @@map("order_line_markings")

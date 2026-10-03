@@ -1,5 +1,6 @@
 "use client";
 
+import { ASKS_MARKING_COLOR, MARKING_COLOR_PALETTE } from "@/lib/marking-colors";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart";
@@ -44,6 +45,26 @@ const REQUIRES_CONSULTATION: Record<Technique, boolean> = {
   Vinilo: true,
 };
 
+function ColorSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="mt-2 flex flex-col gap-1">
+      <span className="text-xs font-semibold text-ink-soft">Color del marcaje (opcional)</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
+      >
+        <option value="">El de mi logo / sin indicar</option>
+        {MARKING_COLOR_PALETTE.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 }
@@ -81,6 +102,8 @@ export default function SimpleMarkingAddToCartForm({
   const [technique, setTechnique] = useState<Technique>(availableTechniques[0]);
   const [colors, setColors] = useState(1);
   const [size, setSize] = useState<PrintSize>("10x10");
+  const [frontColor, setFrontColor] = useState("");
+  const [backColor, setBackColorName] = useState("");
   const [backActive, setBackActive] = useState(false);
   const [backColors, setBackColors] = useState(1);
   const [backSize, setBackSize] = useState<PrintSize>("10x10");
@@ -92,6 +115,7 @@ export default function SimpleMarkingAddToCartForm({
   const [added, setAdded] = useState(false);
 
   const needsConsultation = REQUIRES_CONSULTATION[technique];
+  const asksColor = ASKS_MARKING_COLOR[technique];
   const totalQuantity = Object.values(quantities).reduce((sum, q) => sum + q, 0);
 
   const zone: PrintZone = { active: true, colors, size };
@@ -188,6 +212,7 @@ export default function SimpleMarkingAddToCartForm({
         marking: markingConfig ? { ...markingConfig, garmentUnitCost: p.garmentPrice } : null,
         design,
         designGroupId,
+        markColors: markingConfig && asksColor ? { pecho: frontColor || undefined, espalda: backActive ? backColor || undefined : undefined } : undefined,
       };
     });
 
@@ -284,6 +309,7 @@ export default function SimpleMarkingAddToCartForm({
                     </select>
                   </label>
                 </div>
+                {asksColor && <ColorSelect value={frontColor} onChange={setFrontColor} />}
               </div>
 
               <div className={`rounded-xl border p-3 ${backActive ? "border-brand bg-brand-light" : "border-border"}`}>
@@ -328,6 +354,7 @@ export default function SimpleMarkingAddToCartForm({
                     </label>
                   </div>
                 )}
+                {backActive && asksColor && <ColorSelect value={backColor} onChange={setBackColorName} />}
               </div>
             </div>
           )}

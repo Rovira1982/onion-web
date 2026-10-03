@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { type QuoteInput } from "@/lib/pricing";
-import { buildMarkRows, type MarkRow } from "@/lib/order-marks";
+import { buildMarkRows, type MarkColors, type MarkRow } from "@/lib/order-marks";
 import { personalizedUnitPrice, PERSONALIZED_EXTRA_MARGIN } from "@/lib/line-price";
 import { selectGarmentTier } from "@/lib/garment-price";
 import { groupQuantityTotals, markingSignature } from "@/lib/design-group";
@@ -45,6 +45,7 @@ export type CheckoutCartItem = {
   // id — el precio de marcaje se calcula sobre la cantidad TOTAL del grupo
   // (ver groupQuantityTotals), nunca sobre la de una talla sola.
   designGroupId?: string;
+  markColors?: MarkColors;
   // Código de pack de precio cerrado (ver src/lib/packs.ts) — si está
   // presente, el servidor IGNORA marking para el precio y usa el total fijo
   // del pack. Nunca se confía en un precio enviado por el cliente para
@@ -266,7 +267,7 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
       ...(item.design ? { design: { create: item.design } } : {}),
       // Los packs de precio cerrado no desglosan zonas (precio fijo del pack).
       ...(item.marking && !item.packCode
-        ? { marks: { create: buildMarkRows(item.marking, item.design, quantity, groupTotals[idx]) } }
+        ? { marks: { create: buildMarkRows(item.marking, item.design, quantity, groupTotals[idx], item.markColors) } }
         : {}),
     });
   }

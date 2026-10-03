@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { ASKS_MARKING_COLOR, MARKING_COLOR_PALETTE, isDarkGarmentColor } from "@/lib/marking-colors";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart, type CartItem } from "@/lib/cart";
 import { type PrintSize, type PrintZone, type Technique } from "@/lib/pricing";
@@ -114,13 +115,6 @@ function sortVariantsBySize<T extends { size: string }>(variants: T[]): T[] {
 
 // DTF y Sublimación imprimen a todo color directamente desde el logo subido
 // — solo Serigrafía y Vinilo necesitan saber qué color de tinta/vinilo usar.
-const NEEDS_COLOR_NAME: Record<Technique, boolean> = {
-  DTF: false,
-  Sublimacion: false,
-  Serigrafia: true,
-  Vinilo: true,
-};
-
 // Vinilo requiere presupuesto a medida — no se calcula precio online para
 // esta técnica, se dirige al cliente a contacto en su lugar.
 const REQUIRES_CONSULTATION: Record<Technique, boolean> = {
@@ -129,20 +123,6 @@ const REQUIRES_CONSULTATION: Record<Technique, boolean> = {
   Serigrafia: false,
   Vinilo: true,
 };
-
-const COLOR_PALETTE = [
-  "Blanco",
-  "Negro",
-  "Rojo",
-  "Azul",
-  "Amarillo",
-  "Verde",
-  "Naranja",
-  "Rosa",
-  "Gris",
-  "Dorado",
-  "Plateado",
-];
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -204,8 +184,8 @@ function ZoneToggle({
               onChange={(e) => onColorNameChange(e.target.value)}
               className="col-span-2 rounded-lg border border-border px-2 py-1.5 text-xs text-ink"
             >
-              <option value="">Color del marcaje…</option>
-              {COLOR_PALETTE.map((c) => (
+              <option value="">Color del marcaje (opcional)…</option>
+              {MARKING_COLOR_PALETTE.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -293,13 +273,24 @@ export default function AddToCartForm({
   const [mangaIzquierda, setMangaIzquierda] = useState(false);
   const [mangaDerecha, setMangaDerecha] = useState(false);
   const [mockupGarment, setMockupGarment] = useState<MockupGarment>("camiseta");
-  const [mockupColor, setMockupColor] = useState<MockupColor>("blanco");
+  const garmentColorName = variants[0]?.color ?? "";
+  const [mockupColor, setMockupColor] = useState<MockupColor>(isDarkGarmentColor(garmentColorName) ? "negro" : "blanco");
+  // La vista previa sigue al color de la prenda elegida (oscura para prendas
+  // oscuras): un logo blanco solo se ve sobre fondo oscuro.
+  useEffect(() => {
+    setMockupColor(isDarkGarmentColor(garmentColorName) ? "negro" : "blanco");
+  }, [garmentColorName]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [added, setAdded] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoTransforms, setLogoTransforms] = useState<ZoneTransforms>({});
   const [markColors, setMarkColors] = useState<Partial<Record<MarkZone, string>>>({});
-  const needsColorName = NEEDS_COLOR_NAME[technique];
+  const needsColorName = ASKS_MARKING_COLOR[technique];
+  function changeMarkColor(patch: Partial<Record<MarkZone, string>>) {
+    setMarkColors((prev) => ({ ...prev, ...patch }));
+    // Un marcaje blanco no se ve sobre el maniquí blanco: pasamos a la vista oscura.
+    if (Object.values(patch).some((c) => c === "Blanco")) setMockupColor("negro");
+  }
   const needsConsultation = REQUIRES_CONSULTATION[technique];
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -454,6 +445,7 @@ export default function AddToCartForm({
         marking: markingConfig ? { ...markingConfig, quantity: totalQuantity, garmentUnitCost: p.garmentPrice } : null,
         design,
         designGroupId,
+        markColors: needsColorName ? { ...markColors } : undefined,
       };
     });
 
@@ -538,7 +530,7 @@ export default function AddToCartForm({
                   onChange={setPecho}
                   showColorName={needsColorName}
                   colorName={markColors.pecho ?? ""}
-                  onColorNameChange={(c) => setMarkColors((prev) => ({ ...prev, pecho: c }))}
+                  onColorNameChange={(c) => changeMarkColor({ pecho: c })}
                 />
                 <ZoneToggle
                   title="Espalda"
@@ -546,7 +538,7 @@ export default function AddToCartForm({
                   onChange={setEspalda}
                   showColorName={needsColorName}
                   colorName={markColors.espalda ?? ""}
-                  onColorNameChange={(c) => setMarkColors((prev) => ({ ...prev, espalda: c }))}
+                  onColorNameChange={(c) => changeMarkColor({ espalda: c })}
                 />
                 <ZoneToggle
                   title="Mangas"
@@ -554,7 +546,7 @@ export default function AddToCartForm({
                   onChange={setMangas}
                   showColorName={needsColorName}
                   colorName={markColors.manga_izquierda ?? markColors.manga_derecha ?? ""}
-                  onColorNameChange={(c) => setMarkColors((prev) => ({ ...prev, manga_izquierda: c, manga_derecha: c }))}
+                  onColorNameChange={(c) => changeMarkColor({ manga_izquierda: c, manga_derecha: c })}
                 />
               </div>
               {mangas.active && (

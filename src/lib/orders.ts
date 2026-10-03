@@ -49,6 +49,7 @@ export type OrderDetail = {
       quantity: number;
       unitPrice: number;
       factusolCode: string | null;
+      colorName: string | null;
     }[];
   }[];
 };
@@ -145,6 +146,7 @@ async function fetchOrderDetail(id: string): Promise<OrderDetail | null> {
         quantity: m.quantity,
         unitPrice: parseFloat(m.unitPrice.toString()),
         factusolCode: m.factusolCode,
+        colorName: m.colorName,
       })),
     })),
   };

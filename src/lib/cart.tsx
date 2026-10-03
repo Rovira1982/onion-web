@@ -48,6 +48,9 @@ export type CartItem = {
   // fuera un pedido aparte). Undefined en carritos guardados antes de este
   // cambio — se tratan como grupo de una sola línea.
   designGroupId?: string;
+  // Color del marcaje que eligió el cliente por zona (ver marking-colors.ts).
+  // Solo informativo para producción — nunca afecta al precio.
+  markColors?: Partial<Record<"pecho" | "espalda" | "manga_izquierda" | "manga_derecha", string>>;
   // Código de pack de precio cerrado (ver src/lib/packs.ts), si esta línea
   // viene de /packs — checkout ignora unitPrice/marking para el precio real
   // y usa el total fijo del pack en su lugar. unitPrice aquí es solo el

@@ -29,7 +29,7 @@ describe("buildMarkRows", () => {
   it("DTF delante: tramo, precio y código de la tarifa", () => {
     const rows = buildMarkRows(marking({}), null, 25, 25);
     expect(rows).toEqual([
-      { zone: "pecho", technique: "DTF", size: "22x22", colors: null, tierQty: 25, quantity: 25, unitPrice: 3.1, factusolCode: "DTF22_25" },
+      { zone: "pecho", technique: "DTF", size: "22x22", colors: null, tierQty: 25, quantity: 25, unitPrice: 3.1, factusolCode: "DTF22_25", colorName: null },
     ]);
   });
 
@@ -98,5 +98,22 @@ describe("exportWarning", () => {
     // El pedido solo cobró la prenda, pero la línea dice que incluye marcaje.
     const order = { id: "abcdef123456", total: 11 * 25 * 1.21, shippingCost: 0, discountAmount: 0 };
     expect(exportWarning(order, [line(marks, 17.1)])).toContain("Avisar a Finanzas");
+  });
+});
+
+describe("color del marcaje", () => {
+  it("guarda el color indicado por zona", () => {
+    const m = marking({ espalda: { active: true, colors: 1, size: "10x10" } });
+    const rows = buildMarkRows(m, null, 25, 25, { pecho: "Blanco", espalda: "Negro" });
+    expect(rows.map((r) => [r.zone, r.colorName])).toEqual([
+      ["pecho", "Blanco"],
+      ["espalda", "Negro"],
+    ]);
+  });
+
+  it("sin color indicado queda en null y se recorta el texto raro", () => {
+    expect(buildMarkRows(marking({}), null, 25, 25)[0].colorName).toBeNull();
+    expect(buildMarkRows(marking({}), null, 25, 25, { pecho: "  Rojo  " })[0].colorName).toBe("Rojo");
+    expect(buildMarkRows(marking({}), null, 25, 25, { pecho: "x".repeat(100) })[0].colorName).toHaveLength(40);
   });
 });

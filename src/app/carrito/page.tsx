@@ -48,10 +48,12 @@ function markingSummary(item: CartItem) {
   if (item.packCode) return "Pack de precio cerrado";
   if (!item.marking) return "Pedido de stock, sin marcaje";
   const { technique, pecho, espalda, mangas } = item.marking;
+  const colors = item.markColors ?? {};
+  const withColor = (label: string, color: string | undefined) => (color ? `${label} (${color.toLowerCase()})` : label);
   const zones = [
-    pecho.active && `pecho ${pecho.size}`,
-    espalda.active && `espalda ${espalda.size}`,
-    mangas.active && `mangas ${mangas.size}`,
+    pecho.active && withColor(`pecho ${pecho.size}`, colors.pecho),
+    espalda.active && withColor(`espalda ${espalda.size}`, colors.espalda),
+    mangas.active && withColor(`mangas ${mangas.size}`, colors.manga_izquierda ?? colors.manga_derecha),
   ]
     .filter(Boolean)
     .join(", ");
