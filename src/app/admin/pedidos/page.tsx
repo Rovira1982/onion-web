@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listOrders } from "@/lib/orders";
 import { requireAdmin } from "@/lib/auth";
+import { ORDER_STATUSES, ORDER_STATUS_LABEL, isOrderStatus } from "@/lib/order-status";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -8,10 +9,22 @@ function money(n: number) {
 
 // Listado mínimo para la exportación a FactuSol — no es el panel de
 // administración final, pero ya vive detrás de /admin/login (ver proxy.ts).
-export default async function AdminPedidosPage() {
+export default async function AdminPedidosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string; pago?: string }>;
+}) {
   await requireAdmin();
-  const orders = await listOrders();
-  const pendingCount = orders.filter((o) => !o.factusolExported).length;
+  const { estado, pago } = await searchParams;
+  const all = await listOrders();
+  // El botón de exportar cuenta SIEMPRE los pedidos nuevos de todos, no solo los filtrados.
+  const pendingCount = all.filter((o) => !o.factusolExported).length;
+  const orders = all.filter(
+    (o) =>
+      (!estado || o.status === estado) &&
+      (!pago || (pago === "pagado" ? o.paymentStatus === "pagado" : o.paymentStatus !== "pagado"))
+  );
+  const filtered = Boolean(estado || pago);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
@@ -32,8 +45,41 @@ export default async function AdminPedidosPage() {
         </form>
       </div>
 
+      <form method="get" className="mt-6 flex flex-wrap items-end gap-3 text-sm">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold text-ink-soft">Estado</span>
+          <select name="estado" defaultValue={estado ?? ""} className="rounded-lg border border-border px-2 py-1.5 text-ink">
+            <option value="">Todos</option>
+            {ORDER_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {ORDER_STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold text-ink-soft">Pago</span>
+          <select name="pago" defaultValue={pago ?? ""} className="rounded-lg border border-border px-2 py-1.5 text-ink">
+            <option value="">Todos</option>
+            <option value="pagado">Pagado</option>
+            <option value="pendiente">Sin pagar</option>
+          </select>
+        </label>
+        <button type="submit" className="cursor-pointer rounded-full border border-brand px-4 py-1.5 font-display text-xs font-bold text-brand hover:bg-brand-light">
+          Filtrar
+        </button>
+        {filtered && (
+          <Link href="/admin/pedidos" className="text-xs font-semibold text-ink-soft hover:text-brand">
+            Quitar filtros
+          </Link>
+        )}
+        <span className="ml-auto text-xs text-ink-soft">
+          {orders.length} de {all.length} pedidos
+        </span>
+      </form>
+
       {orders.length === 0 ? (
-        <p className="mt-8 text-ink-soft">Todavía no hay pedidos.</p>
+        <p className="mt-8 text-ink-soft">{filtered ? "Ningún pedido con esos filtros." : "Todavía no hay pedidos."}</p>
       ) : (
         <table className="mt-8 w-full border-collapse text-sm">
           <thead>
@@ -57,7 +103,7 @@ export default async function AdminPedidosPage() {
                     {o.invoiceName}
                   </Link>
                 </td>
-                <td className="py-2 pr-4">{o.status}</td>
+                <td className="py-2 pr-4">{isOrderStatus(o.status) ? ORDER_STATUS_LABEL[o.status] : o.status}</td>
                 <td className="py-2 pr-4">
                   {o.paymentStatus === "pagado" ? (
                     <span className="font-semibold text-green-700">Pagado</span>

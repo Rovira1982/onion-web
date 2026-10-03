@@ -6,6 +6,7 @@ import { getFactusolClientCode } from "@/lib/factusol";
 import MarcarPagadoButton from "./MarcarPagadoButton";
 import ArchivarDisenoButton from "./ArchivarDisenoButton";
 import CodigoFactusolField from "./CodigoFactusolField";
+import EstadoSelect from "./EstadoSelect";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -36,7 +37,9 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
       <dl className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-border p-5 text-sm sm:grid-cols-3">
         <div>
           <dt className="font-display font-semibold text-ink-soft">Estado</dt>
-          <dd className="mt-1 text-ink">{order.status}</dd>
+          <dd className="mt-1">
+            <EstadoSelect orderId={order.id} current={order.status} />
+          </dd>
         </div>
         <div>
           <dt className="font-display font-semibold text-ink-soft">Pago</dt>
@@ -108,6 +111,19 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {line.logoFileUrl && (
+                    <div className="mt-1">
+                      <a
+                        href={line.logoFileUrl}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer text-xs font-semibold text-brand hover:text-brand-dark"
+                      >
+                        Descargar logo original
+                      </a>
+                    </div>
                   )}
                   {line.previewImageUrl && (
                     <div className="mt-1">

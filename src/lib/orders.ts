@@ -29,6 +29,8 @@ export type OrderDetail = {
     priceTier: string | null;
     productName: string;
     previewImageUrl: string | null;
+    // Logo original que subió el cliente (para descargarlo desde el pedido).
+    logoFileUrl: string | null;
     supplierModelCode: string;
     // Código de artículo para FactuSol (máx. 13 caracteres) — factusolCode
     // si el maestro lo recortó, si no supplierCode tal cual; null cuando el
@@ -132,6 +134,7 @@ async function fetchOrderDetail(id: string): Promise<OrderDetail | null> {
       priceTier: line.priceTier,
       productName: line.productVariant?.product.name ?? "Producto retirado del catálogo",
       previewImageUrl: line.design?.previewImageUrl ?? null,
+      logoFileUrl: line.design?.logoFileUrl ?? null,
       supplierModelCode: line.productVariant?.supplierModelCode ?? "",
       factusolArticleCode: line.productVariant?.product.factusolCode ?? line.productVariant?.product.supplierCode ?? null,
       supplierSku: line.productVariant?.product.supplierSku ?? null,

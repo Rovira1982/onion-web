@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { archiveFile } from "@/lib/storage";
 import { setFactusolClientCode } from "@/lib/factusol";
+import { canMoveToStatus, isOrderStatus } from "@/lib/order-status";
 
 // Único punto de entrada para marcar un pedido como pagado — hoy no
 // cobramos online (se manda el enlace de pago por email), así que esto es
@@ -55,5 +56,22 @@ export async function actualizarCodigoFactusol(nif: string, code: number): Promi
   await requireAdmin();
   if (!Number.isInteger(code) || code <= 0) return { error: "El código debe ser un número entero positivo." };
   await setFactusolClientCode(nif, code);
+  return { ok: true };
+}
+
+// Cambia el estado del pedido (diseño, aprobación, producción, entregado...).
+// El cobro es aparte (marcarPedidoPagado): aquí no se toca paymentStatus, pero
+// un pedido sin pagar no puede avanzar de "pendiente de pago".
+export async function cambiarEstadoPedido(orderId: string, status: string): Promise<{ ok: true } | { error: string }> {
+  await requireAdmin();
+  if (!isOrderStatus(status)) return { error: "Estado no válido." };
+
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { paymentStatus: true } });
+  if (!order) return { error: "Pedido no encontrado." };
+  if (!canMoveToStatus(order.paymentStatus, status)) {
+    return { error: "El pedido no está pagado: márcalo como pagado antes de avanzarlo." };
+  }
+
+  await prisma.order.update({ where: { id: orderId }, data: { status } });
   return { ok: true };
 }
