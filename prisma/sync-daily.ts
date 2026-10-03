@@ -41,5 +41,15 @@ for (const script of SCRIPTS) {
   }
 }
 
+// Los importadores reescriben el nombre de cada producto con el del proveedor
+// (que repite nombres de colección): se vuelve a diferenciarlos al terminar.
+console.log(`\n=== disambiguate-names.ts — ${new Date().toISOString()} ===`);
+try {
+  execFileSync("npx", ["tsx", "prisma/disambiguate-names.ts", "--apply"], { stdio: "inherit", shell: true });
+} catch (err) {
+  failures++;
+  console.error("✗ disambiguate-names.ts falló.", err instanceof Error ? err.message : err);
+}
+
 console.log(`\nSync completo — ${new Date().toISOString()} (${failures} proveedor(es) con fallo)`);
 process.exit(failures > 0 ? 1 : 0);

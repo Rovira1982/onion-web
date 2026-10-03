@@ -56,3 +56,39 @@ describe("helpers compartidos de CSV", () => {
     expect(readFileSync(file).toString("utf8")).toBe("﻿a,b\n1,2");
   });
 });
+
+describe("nombres repetidos de proveedor", () => {
+  const item = (id: string, sku: string, category: string, color: string, supplier = "Valento") => ({
+    id, name: "THUNDER", base: "THUNDER", sku, supplierId: "s", supplier, category, color,
+  });
+
+  it("separa por categoría cuando la categoría distingue", async () => {
+    const { suffixesFor } = await import("./disambiguate-names");
+    const s = suffixesFor([item("1", "A", "polos", ""), item("2", "B", "PANTALONES", "")]);
+    expect(s.get("1")).toBe("Polos");
+    expect(s.get("2")).toBe("Pantalones");
+  });
+
+  it("si la categoría coincide usa el color de un solo color; el otro queda con el nombre base", async () => {
+    const { suffixesFor } = await import("./disambiguate-names");
+    const s = suffixesFor([item("1", "A", "polos", "azul"), item("2", "B", "polos", "")]);
+    expect(s.get("1")).toBe("Azul");
+    expect(s.get("2")).toBe("");
+  });
+
+  it("en Cifra distingue por color y no por la categoría", async () => {
+    const { suffixesFor } = await import("./disambiguate-names");
+    const s = suffixesFor([
+      item("1", "10552", "Bolsas", "Rojo", "Cifra"),
+      item("2", "10552-2", "Otros artículos", "Negro", "Cifra"),
+    ]);
+    expect(s.get("1")).toBe("Rojo");
+    expect(s.get("2")).toBe("Negro");
+  });
+
+  it("ningún nombre final se repite aunque todo coincida", async () => {
+    const { suffixesFor } = await import("./disambiguate-names");
+    const s = suffixesFor([item("1", "A", "polos", ""), item("2", "B", "polos", "")]);
+    expect(new Set([...s.values()]).size).toBe(2);
+  });
+});
