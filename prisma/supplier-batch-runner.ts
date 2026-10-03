@@ -7,12 +7,9 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
 import { consolidateSku, gorfactoryHandlingFee, gorfactoryShipping } from "../src/lib/supplier-batching";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 // Roly y Stamina ya comparten Supplier.adapterKey="gorfactory" en el schema
 // (confirmado consultando la tabla: dos filas de Supplier, un solo

@@ -11,6 +11,7 @@
     "postinstall": "prisma generate",
     "sync:daily": "tsx prisma/sync-daily.ts",
     "batch:tandas": "tsx prisma/run-supplier-batch.ts",
+    "audit:catalogo": "tsx prisma/audit-catalog.ts",
     "test": "vitest run"
   },
   "dependencies": {

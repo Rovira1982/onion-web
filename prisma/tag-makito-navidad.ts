@@ -21,12 +21,9 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
 
 const BASE_URL = process.env.MAKITO_BASE_URL ?? "https://apis.makito.es";
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 async function login(): Promise<string> {
   const res = await fetch(`${BASE_URL}/access/auth/login`, {

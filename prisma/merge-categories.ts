@@ -11,11 +11,9 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
+import { slugify } from "../src/lib/product-format";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 // [sourceNames, targetName] — every sourceName gets merged into targetName.
 // targetName is created if it doesn't already exist (in the same parent as
@@ -74,14 +72,6 @@ const MERGES: [string[], string][] = [
   [["TEIXITS", "TEJIDOS"], "Tejidos"],
 ];
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 async function main() {
   let merged = 0;

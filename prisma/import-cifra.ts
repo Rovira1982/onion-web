@@ -10,12 +10,11 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
+import { cleanName, cleanDescription } from "./text-clean";
 import { getCifraFamilies } from "./cifra-source";
+import { slugify } from "../src/lib/product-format";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 // confidential_price is Cifra's wholesale cost — their own PVP endpoint is
 // confirmed live to always be exactly confidential_price × 2 (checked across
@@ -23,14 +22,6 @@ const prisma = new PrismaClient({ adapter });
 const MARGEN = 2;
 const DEFAULT_CATEGORY = "Regalo Promocional";
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 async function main() {
   console.log("Importando catálogo de Cifra a la base de datos...\n");
@@ -99,8 +90,8 @@ async function main() {
     const product = await prisma.product.upsert({
       where: { supplierId_supplierSku: { supplierId: supplier.id, supplierSku } },
       update: {
-        name: rep.name,
-        description: rep.description,
+        name: cleanName(rep.name),
+        description: cleanDescription(rep.description),
         brand: "Cifra",
         subcategory: rep.subcategory || null,
         material: rep.material || null,
@@ -113,8 +104,8 @@ async function main() {
       create: {
         supplierId: supplier.id,
         supplierSku,
-        name: rep.name,
-        description: rep.description,
+        name: cleanName(rep.name),
+        description: cleanDescription(rep.description),
         brand: "Cifra",
         subcategory: rep.subcategory || null,
         material: rep.material || null,

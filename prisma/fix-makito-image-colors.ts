@@ -14,16 +14,13 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { appendFileSync } from "node:fs";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
 import { fallbackBoilerplate, parseColorLabel, sizeLabelFor } from "./import-makito";
 
 const MAKITO_URL_PREFIX = "/api/uploads/makito/";
 const LOG_FILE = `fix-makito-image-colors-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`;
 
 const BASE_URL = process.env.MAKITO_BASE_URL ?? "https://apis.makito.es";
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 const APPLY = process.argv.includes("--apply");
 const env = (process.argv.find((a) => a.startsWith("--env="))?.split("=")[1] as "test" | "prod") ?? "test";

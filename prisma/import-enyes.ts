@@ -38,13 +38,12 @@ config({ path: ".env.local" });
 
 import { readFileSync } from "fs";
 import { join } from "path";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
+import { cleanName, cleanDescription } from "./text-clean";
+import { slugify } from "../src/lib/product-format";
 
 const W_USU = "9976051";
 const BASE_URL = "https://info.catapendix.es/cgi-vel/encender";
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 function parseArgs() {
   const limitArg = process.argv.find((a) => a.startsWith("--limit="));
@@ -100,14 +99,6 @@ type EnyesTarifaRow = {
   combinations: Record<string, { rates: Record<string, { price: number; from: number }> }>;
 };
 
-export function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 // El coste real por variante es siempre el tramo más bajo ("from":1) de su
 // propia tarifa — mismo criterio que unitCostFromScales en Makito (tramo
@@ -223,8 +214,8 @@ async function main() {
 
       const categoryName = resolveCategory(core.categories, categoryMaps);
       const categoryId = await categoryIdFor(categoryName);
-      const name = core.name?.["1"] || familyCode;
-      const description = (core.description?.["1"] ?? "").replace(/<[^>]+>/g, " ").trim() || null;
+      const name = cleanName(core.name?.["1"] || familyCode);
+      const description = cleanDescription(core.description?.["1"] ?? "") || null;
       const mainImage = core.images?.[0]?.url ?? null;
       const totalStock = [...stockByCombo.values()].reduce((sum, q) => sum + (q || 0), 0);
 

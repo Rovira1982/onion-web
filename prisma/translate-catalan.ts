@@ -5,11 +5,8 @@
 // Gorfactory sigue sin traducción, habrá que re-ejecutar esto.
 import { config } from "dotenv";
 config({ path: ".env.local" });
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 const TRANSLATIONS: Record<string, { description: string; material: string | null }> = {
   "da0a3c4a-52af-48aa-8a19-80ad4bb0bc6a": {

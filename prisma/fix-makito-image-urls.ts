@@ -21,13 +21,10 @@
 // Run with: npx tsx prisma/fix-makito-image-urls.ts [--apply]
 import { config } from "dotenv";
 config({ path: ".env.local" });
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
 
 const APPLY = process.argv.includes("--apply");
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 // "https://cualquier-dominio.com/api/uploads/x" -> "/api/uploads/x"
 function toRelative(url: string): string {
