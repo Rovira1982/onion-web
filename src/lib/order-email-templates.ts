@@ -47,10 +47,11 @@ export function emailFooter(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): {
   };
 }
 
-// Gato "todo OK" (el de Josep, recortado por Diseño; 480×480 mostrado a 120 px para
-// pantallas @2x, 59 KB) — solo en los correos al cliente.
+// Gato "todo OK" (el de Josep, recortado por Diseño; 480×480 mostrado a 150 px para
+// pantallas @2x, 59 KB) — solo en los correos al cliente. Centrado justo bajo
+// la cabecera (decisión de Josep, 2026-10-03).
 export function catHtml(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): string {
-  return `<p style="margin:8px 0 0"><img src="${escapeHtml(siteUrl)}/email/gato-todo-ok.jpg" width="120" height="120" alt="Todo OK" style="display:block;border:0"></p>`;
+  return `<p style="text-align:center;margin:0 0 12px"><img src="${escapeHtml(siteUrl)}/email/gato-todo-ok.jpg" width="150" height="150" alt="Todo OK" style="border:0"></p>`;
 }
 
 export const orderNumber = (id: string) => id.slice(0, 8);
@@ -127,14 +128,13 @@ Cuando recibamos el pago nos ponemos manos a la obra.
 
 Un abrazo,
 El equipo de Onion and Back 🐱👍${emailFooter().text}`;
-  const html = wrapHtml(`<p>Hola, ¡gracias por tu pedido!</p>
+  const html = wrapHtml(`${catHtml()}<p>Hola, ¡gracias por tu pedido!</p>
 <p>Hemos recibido tu pedido <strong>nº ${n}</strong>. Este es el resumen:</p>
 <ul style="padding-left:18px">${s.html}</ul>
 <p>${s.totals.map(escapeHtml).join("<br>")}</p>
 <p>${pay.html}</p>
 <p>Cuando recibamos el pago nos ponemos manos a la obra.</p>
-<p>Un abrazo,<br>El equipo de Onion and Back</p>
-${catHtml()}`);
+<p>Un abrazo,<br>El equipo de Onion and Back</p>`);
   return { subject: `Hemos recibido tu pedido nº ${n}`, text, html };
 }
 
@@ -148,11 +148,10 @@ Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), res
 
 Un abrazo,
 El equipo de Onion and Back 🐱👍${emailFooter().text}`;
-  const html = wrapHtml(`<p>Hola, ¡pago recibido!</p>
+  const html = wrapHtml(`${catHtml()}<p>Hola, ¡pago recibido!</p>
 <p>Hemos recibido el pago de tu pedido <strong>nº ${n}</strong> y nos ponemos manos a la obra.</p>
 <p>Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), responde a este correo y lo adjuntas.</p>
-<p>Un abrazo,<br>El equipo de Onion and Back</p>
-${catHtml()}`);
+<p>Un abrazo,<br>El equipo de Onion and Back</p>`);
   return { subject: "Pago recibido, nos ponemos manos a la obra", text, html };
 }
 
