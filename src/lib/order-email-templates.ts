@@ -50,8 +50,12 @@ export function emailFooter(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): {
 // Gato "todo OK" (el de Josep, versión pegatina con fondo transparente de Diseño; 480×480 mostrado a 150 px para
 // pantallas @2x, 59 KB) — solo en los correos al cliente. Centrado justo bajo
 // la cabecera (decisión de Josep, 2026-10-03).
-export function catHtml(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): string {
-  return `<p style="text-align:center;margin:0 0 12px"><img src="${escapeHtml(siteUrl)}/email/gato-todo-ok.png" width="150" height="150" alt="Todo OK" style="border:0"></p>`;
+export function catHtml(
+  image = "gato-todo-ok.png",
+  alt = "Todo OK",
+  siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""
+): string {
+  return `<p style="text-align:center;margin:0 0 12px"><img src="${escapeHtml(siteUrl)}/email/${image}" width="150" height="150" alt="${escapeHtml(alt)}" style="border:0"></p>`;
 }
 
 export const orderNumber = (id: string) => id.slice(0, 8);
@@ -148,7 +152,7 @@ Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), res
 
 Un abrazo,
 El equipo de Onion and Back 🐱👍${emailFooter().text}`;
-  const html = wrapHtml(`${catHtml()}<p>Hola, ¡pago recibido!</p>
+  const html = wrapHtml(`${catHtml("gato-pago.png", "Pago recibido")}<p>Hola, ¡pago recibido!</p>
 <p>Hemos recibido el pago de tu pedido <strong>nº ${n}</strong> y nos ponemos manos a la obra.</p>
 <p>Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), responde a este correo y lo adjuntas.</p>
 <p>Un abrazo,<br>El equipo de Onion and Back</p>`);
