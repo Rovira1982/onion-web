@@ -55,25 +55,59 @@ export default async function Home() {
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-brand-light">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-center lg:px-8 lg:py-24">
+      {/* Hero — en móvil: foto a sangre primero, luego titular + frase + 2
+          botones en el primer pantallazo y la prueba social debajo (muestra B
+          de Diseño, elegida por Josep 2026-10-03). Buscador secundario. */}
+      <section className="relative overflow-hidden bg-background lg:bg-brand-light">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 pb-12 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-10 lg:px-8 lg:py-24 lg:pb-24">
+          <div className="relative order-first -mx-4 sm:mx-auto sm:w-full sm:max-w-md lg:order-last">
+            <div className="absolute -inset-6 -z-10 hidden rounded-[2.5rem] bg-brand/10 blur-2xl sm:block" aria-hidden="true" />
+            <div className="overflow-hidden sm:rounded-[2rem] sm:border sm:border-border sm:bg-white sm:shadow-xl">
+              <Image
+                src="/social-proof/asevi-detalle-real.jpg"
+                alt="Detalle personalizado real entregado a @asevi.es"
+                width={800}
+                height={1000}
+                priority
+                className="h-[220px] w-full object-cover sm:h-[480px]"
+              />
+            </div>
+            <p className="mt-3 hidden text-center text-xs text-ink-soft sm:block">
+              Pedido real entregado a <span className="font-semibold text-ink">@asevi.es</span>
+            </p>
+          </div>
+
           <div>
-            <span className="inline-flex items-center rounded-full bg-white px-3 py-1 font-display text-xs font-bold uppercase tracking-wide text-brand shadow-sm">
-              Regalos de empresa a tu medida
-            </span>
-            <h1 className="mt-5 text-4xl font-extrabold leading-tight text-ink sm:text-5xl">
-              Lo que necesites,{" "}
-              <span className="text-brand">con tu logo o tu nombre</span>
+            <h1 className="text-[1.75rem] font-extrabold leading-tight text-ink sm:text-5xl">
+              Tú pones la idea y <span className="text-brand">nosotros el cariño.</span>
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-ink-soft">
-              Camisetas, sudaderas, regalos y equipación para peñas, empresas y
-              despedidas. Lo hacemos nosotros, aquí, desde hace 12 años.
+            <p className="mt-3 max-w-xl text-base text-ink-soft sm:text-lg">
+              Camisetas, sudaderas y más con tu logo o tu idea, hechas en nuestro taller.
+            </p>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/presupuesto"
+                className="rounded-full bg-ink px-6 py-3.5 text-center font-display text-base font-bold text-white transition-colors hover:bg-ink/90"
+              >
+                Diseña la tuya
+              </Link>
+              <Link
+                href="/catalogo"
+                className="rounded-full border-2 border-ink px-6 py-3 text-center font-display text-base font-bold text-ink transition-colors hover:bg-ink hover:text-white"
+              >
+                Ver catálogo
+              </Link>
+            </div>
+
+            <p className="mt-6 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-ink-soft">
+              <span className="text-brand" aria-hidden="true">★★★★★</span>
+              5,0/5 en Facebook (13 reseñas) · +2.500 seguidores · +570 en Instagram
             </p>
 
             <form
               action="/catalogo"
-              className="mt-8 flex max-w-lg flex-col gap-3 rounded-2xl border border-border bg-white p-2 shadow-sm sm:flex-row"
+              className="mt-6 hidden max-w-lg gap-2 rounded-2xl sm:flex border border-border bg-white p-2 shadow-sm"
             >
               <label htmlFor="q" className="sr-only">
                 ¿Qué quieres regalar?
@@ -82,20 +116,19 @@ export default async function Home() {
                 id="q"
                 name="q"
                 type="text"
-                placeholder="¿Qué quieres regalar? Ej. botellas, camisetas…"
-                className="flex-1 rounded-xl border-0 bg-transparent px-3 py-3 text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-brand"
+                placeholder="¿Qué buscas? Ej. botellas, camisetas…"
+                className="min-w-0 flex-1 rounded-xl border-0 bg-transparent px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-brand"
               />
               <button
                 type="submit"
-                className="cursor-pointer rounded-xl bg-brand px-6 py-3 font-display text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+                className="cursor-pointer rounded-xl bg-brand px-5 py-2.5 font-display text-sm font-bold text-white transition-colors hover:bg-brand-dark"
               >
                 Buscar
               </button>
             </form>
 
             {/* Se repiten en la sección "Garantía" más abajo — ocultos en
-                móvil para no alargar el hero antes de llegar al outlet y
-                los productos. */}
+                móvil para no alargar el hero. */}
             <div className="mt-10 hidden gap-6 sm:grid sm:grid-cols-3">
               {TRUST_BADGES.map((b) => (
                 <div key={b.title}>
@@ -104,27 +137,6 @@ export default async function Home() {
                 </div>
               ))}
             </div>
-
-            <p className="mt-6 text-xs font-semibold text-ink-soft">
-              5,0/5 en Facebook (13 reseñas) · +2.500 seguidores · +570 en Instagram
-            </p>
-          </div>
-
-          <div className="relative mx-auto w-full max-w-md">
-            <div className="absolute -inset-6 -z-10 rounded-[2.5rem] bg-brand/10 blur-2xl" aria-hidden="true" />
-            <div className="overflow-hidden rounded-[2rem] border border-border bg-white shadow-xl">
-              <Image
-                src="/social-proof/asevi-detalle-real.jpg"
-                alt="Detalle personalizado real entregado a @asevi.es"
-                width={800}
-                height={1000}
-                priority
-                className="h-[420px] w-full object-cover sm:h-[480px]"
-              />
-            </div>
-            <p className="mt-3 text-center text-xs text-ink-soft">
-              Pedido real entregado a <span className="font-semibold text-ink">@asevi.es</span>
-            </p>
           </div>
         </div>
       </section>
