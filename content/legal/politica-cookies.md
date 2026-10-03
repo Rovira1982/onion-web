@@ -1,7 +1,5 @@
 # Política de Cookies
 
-*Borrador — no es asesoría legal. Contrastar con la guía de cookies de la AEPD antes de publicar. Actualizar la tabla si cambian las cookies reales usadas en el sitio.*
-
 ## 1. Qué son las cookies
 
 Las cookies son pequeños archivos que se almacenan en tu navegador al visitar una web. Sirven para recordar tus preferencias, mantener tu sesión iniciada o medir el uso del sitio.
@@ -16,12 +14,10 @@ Las cookies son pequeños archivos que se almacenan en tu navegador al visitar u
 | Preferencia de cookies (`oab_marketing_consent`) | Técnica/necesaria | Misma elección que la anterior, en formato cookie normal para que nuestro propio servidor pueda leerla (por ejemplo, para no enviar el evento de conversión a Meta si no aceptaste cookies de publicidad) | 12 meses | No |
 | Meta Pixel (`_fbp`, `fr`) | Publicitaria/de terceros | Medir conversiones y mostrar anuncios relevantes en Meta (Facebook/Instagram). Solo se activa si aceptas cookies de publicidad | Hasta 90 días (según política de Meta) | Sí, requiere aceptación previa en el banner |
 
-*Esta tabla debe revisarse cada vez que se añada un nuevo script o servicio a la web (analítica, chat, otro píxel, etc.) — es la parte que más se queda desactualizada y la que más vigila la AEPD.*
-
 ## 3. Cómo gestionar tu consentimiento
 
 Al entrar por primera vez en el sitio verás un banner que te permite aceptar todas las cookies, rechazar las no esenciales, o configurar cuáles aceptas. Puedes cambiar tu decisión en cualquier momento desde el botón "Configurar cookies" del pie de página.
 
 También puedes bloquear o eliminar las cookies desde la configuración de tu propio navegador; ten en cuenta que bloquear las cookies técnicas puede impedir el funcionamiento correcto de la tienda (por ejemplo, el carrito de compra).
 
-*Última actualización: [[FECHA]]*
+*Última actualización: 3 de octubre de 2026*
