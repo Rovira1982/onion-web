@@ -273,6 +273,11 @@ model OrderLine {
   // precio de venta ya redondeado, no el coste proveedor (ver
   // ProductVariant.costUnit para eso).
   garmentCost         Decimal?           @db.Decimal(10, 2)
+  // Coste real de proveedor por unidad de prenda en el momento del pedido (el
+  // del tramo unidad/pack/caja aplicado). Sin esto no se puede calcular el
+  // margen real por pedido: los costes cambian en cada sincronización y no se
+  // pueden reconstruir después. Null en pedidos anteriores al 2026-10-03.
+  supplierUnitCost    Decimal?           @db.Decimal(10, 4)
   markingCost         Decimal?           @db.Decimal(10, 2)
   // "unidad" | "pack" | "caja" — qué tramo se aplicó a esta línea.
   priceTier           String?

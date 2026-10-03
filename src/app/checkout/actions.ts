@@ -92,6 +92,18 @@ export async function comprobarCodigoDescuento(
 // marking) — never trust a price from the browser. Every line is repriced
 // here from real data (the variant's current DB price, or calculateQuote for
 // personalized lines) before the order is written.
+// Coste real de proveedor por unidad en el tramo aplicado (unidad/pack/caja),
+// con repliegue al de unidad. Se guarda en la línea para poder calcular el
+// margen real después: el coste de la variante cambia en cada sincronización.
+function supplierCostForTier(
+  variant: { costUnit: { toString(): string } | null; costPack: { toString(): string } | null; costBox: { toString(): string } | null },
+  tier: string
+): number | null {
+  const raw = tier === "caja" ? variant.costBox : tier === "pack" ? variant.costPack : variant.costUnit;
+  const value = raw ?? variant.costUnit;
+  return value == null ? null : parseFloat(value.toString());
+}
+
 export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult> {
   if (input.items.length === 0) return { error: "El carrito está vacío." };
   if (
@@ -201,6 +213,7 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
     quantity: number;
     unitPrice: number;
     garmentCost: number;
+    supplierUnitCost: number | null;
     markingCost: number | null;
     priceTier: string;
     design?: { create: CheckoutDesign };
@@ -262,6 +275,7 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
       quantity,
       unitPrice,
       garmentCost: garmentPricing.price,
+      supplierUnitCost: supplierCostForTier(variant, garmentPricing.tier),
       markingCost,
       priceTier: garmentPricing.tier,
       ...(item.design ? { design: { create: item.design } } : {}),
