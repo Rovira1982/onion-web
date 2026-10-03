@@ -251,9 +251,25 @@ model Order {
   // el export en bloque solo coge pedidos con esto a null, para no
   // duplicar un pedido ya mandado a FactuSol.
   factusolExportedAt DateTime?
+  // Avisos por correo ya enviados al cliente (uno por estado, ver OrderNotification).
+  notifications      OrderNotification[]
 
   @@index([status, priority])
   @@map("orders")
+}
+
+// Aviso por correo enviado al cliente al llegar el pedido a un estado. La clave
+// única (pedido, estado) garantiza que cada aviso sale una sola vez aunque se
+// vuelva a guardar el mismo estado.
+model OrderNotification {
+  id      String      @id @default(uuid())
+  orderId String
+  order   Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status  OrderStatus
+  sentAt  DateTime    @default(now())
+
+  @@unique([orderId, status])
+  @@map("order_notifications")
 }
 
 // Una línea de pedido — equivalente a la hoja "Pedidos" del Excel del negocio:

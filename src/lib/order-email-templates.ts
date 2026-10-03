@@ -60,7 +60,7 @@ export function catHtml(
 
 export const orderNumber = (id: string) => id.slice(0, 8);
 const eur = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
-const escapeHtml = (s: string) =>
+export const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
 const zoneLabel = (zone: string) => zone.replace(/_/g, " ");
 
@@ -107,7 +107,7 @@ function summary(order: EmailOrder) {
   return { text: `${text}\n\n${totals.join("\n")}`, html, totals };
 }
 
-function wrapHtml(body: string): string {
+export function wrapHtml(body: string): string {
   return `<div style="font-family:Arial,Helvetica,sans-serif;color:${INK};max-width:560px;margin:0 auto;padding:16px;line-height:1.5">
 <div style="border-bottom:3px solid ${BRAND};padding-bottom:8px;margin-bottom:16px;font-size:18px;font-weight:bold;color:${BRAND}">Onion and Back</div>
 ${body}
