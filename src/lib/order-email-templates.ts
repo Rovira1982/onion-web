@@ -47,11 +47,11 @@ export function emailFooter(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): {
   };
 }
 
-// Gato "todo OK" (el de Josep, recortado por Diseño; 480×480 mostrado a 150 px para
+// Gato "todo OK" (el de Josep, versión pegatina con fondo transparente de Diseño; 480×480 mostrado a 150 px para
 // pantallas @2x, 59 KB) — solo en los correos al cliente. Centrado justo bajo
 // la cabecera (decisión de Josep, 2026-10-03).
 export function catHtml(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): string {
-  return `<p style="text-align:center;margin:0 0 12px"><img src="${escapeHtml(siteUrl)}/email/gato-todo-ok.jpg" width="150" height="150" alt="Todo OK" style="border:0"></p>`;
+  return `<p style="text-align:center;margin:0 0 12px"><img src="${escapeHtml(siteUrl)}/email/gato-todo-ok.png" width="150" height="150" alt="Todo OK" style="border:0"></p>`;
 }
 
 export const orderNumber = (id: string) => id.slice(0, 8);
