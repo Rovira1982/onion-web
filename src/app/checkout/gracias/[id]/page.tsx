@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderConfirmation } from "@/lib/orders";
 import PurchasePixel from "@/components/PurchasePixel";
+import { transferInstruction } from "@/lib/bank-transfer";
 
 function money(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -18,7 +19,13 @@ export default async function GraciasPage({ params }: { params: Promise<{ id: st
       <PurchasePixel orderId={order.id} value={order.total} />
       <h1 className="text-3xl font-bold text-ink">¡Pedido recibido!</h1>
       <p className="mt-3 text-ink-soft">
-        En breve te enviaremos el enlace de pago a <strong className="text-ink">{order.contactEmail}</strong>.
+        {order.paymentMethod === "transferencia" ? (
+          <>{transferInstruction(order.id.slice(0, 8))} </>
+        ) : (
+          <>
+            En breve te enviaremos el enlace de pago a <strong className="text-ink">{order.contactEmail}</strong>.{" "}
+          </>
+        )}
         El pedido no pasa a producción hasta confirmar el pago.
       </p>
 

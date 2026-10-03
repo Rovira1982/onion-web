@@ -2,9 +2,8 @@
 // envío está en order-emails.ts). Transaccionales: sin publicidad ni casillas
 // de marketing. Sin plazos de entrega ni fechas (aún no medimos tiempos).
 
-// Plazo para pagar una transferencia antes de que se cancele el pedido
-// (Finanzas lo cierra en los Términos — cámbialo solo aquí).
-export const TRANSFER_PAYMENT_DEADLINE_DAYS = 3;
+import { TRANSFER_PAYMENT_DEADLINE_DAYS, transferInstruction } from "./bank-transfer";
+export { TRANSFER_PAYMENT_DEADLINE_DAYS };
 
 export type EmailOrder = {
   id: string;
@@ -67,14 +66,11 @@ const zoneLabel = (zone: string) => zone.replace(/_/g, " ");
 // Bloque de pago — sección intercambiable. Mientras no haya pasarela (TPV) el
 // texto es genérico; cuando exista, se sustituye aquí por el enlace o el IBAN
 // reales (y se retira el aviso de plazo si ya no aplica).
-export function paymentBlock(method: string): { text: string; html: string } {
-  const how = "En breve te indicamos cómo pagar.";
-  const deadline =
-    method === "transferencia"
-      ? ` Tienes ${TRANSFER_PAYMENT_DEADLINE_DAYS} días naturales para hacerla; pasado ese plazo el pedido se cancela.`
-      : "";
+export function paymentBlock(method: string, orderNo?: string): { text: string; html: string } {
   const methodLabel = { tarjeta: "tarjeta", bizum: "Bizum", transferencia: "transferencia" }[method] ?? method;
-  const text = `Forma de pago: ${methodLabel}. ${how}${deadline}`;
+  // Transferencia: IBAN y plazo reales. Tarjeta/Bizum: genérico hasta tener pasarela.
+  const how = method === "transferencia" ? transferInstruction(orderNo) : "En breve te indicamos cómo pagar.";
+  const text = `Forma de pago: ${methodLabel}. ${how}`;
   return { text, html: escapeHtml(text) };
 }
 
@@ -119,7 +115,7 @@ ${emailFooter().html}
 export function buildOrderConfirmation(order: EmailOrder): EmailContent {
   const n = orderNumber(order.id);
   const s = summary(order);
-  const pay = paymentBlock(order.paymentMethod);
+  const pay = paymentBlock(order.paymentMethod, n);
   const text = `Hola, ¡gracias por tu pedido!
 
 Hemos recibido tu pedido nº ${n}. Este es el resumen:

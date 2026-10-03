@@ -1,5 +1,6 @@
 "use client";
 
+import { transferInstruction } from "@/lib/bank-transfer";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -242,7 +243,9 @@ export default function CheckoutPage() {
               ))}
             </div>
             <p className="mt-2 text-xs text-ink-soft">
-              Todavía no cobramos online desde la web — te enviaremos el enlace de pago por email en cuanto confirmes el pedido.
+              {paymentMethod === "transferencia"
+                ? transferInstruction()
+                : "Todavía no cobramos online desde la web — te enviaremos el enlace de pago por email en cuanto confirmes el pedido."}
             </p>
           </div>
 

@@ -28,6 +28,8 @@ describe("correos de pedido", () => {
     expect(m.text).toContain("IVA (21 %): 6,04 €");
     expect(m.text).toContain("Total: 36,04 €");
     expect(m.text).toContain(`Tienes ${TRANSFER_PAYMENT_DEADLINE_DAYS} días naturales`);
+    expect(m.text).toContain("IBAN ES98 0049 6852 6729 9001 5097 (Banco Santander)");
+    expect(m.text).toContain("concepto el nº de pedido abcdef12");
     expect(m.text).not.toContain("Si eliges transferencia");
   });
 
@@ -36,7 +38,9 @@ describe("correos de pedido", () => {
   });
 
   it("con tarjeta no menciona el plazo de transferencia", () => {
-    expect(buildOrderConfirmation({ ...order, paymentMethod: "tarjeta" }).text).not.toContain("días naturales");
+    const card = buildOrderConfirmation({ ...order, paymentMethod: "tarjeta" }).text;
+    expect(card).not.toContain("días naturales");
+    expect(card).not.toContain("IBAN");
   });
 
   it("con el total que calcula el checkout, el IVA sale 21 % de la base", () => {
