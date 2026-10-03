@@ -20,6 +20,8 @@ export type EmailOrder = {
     productName: string;
     size: string;
     color: string;
+    // Precio por unidad SIN IVA, tal como lo cobra el checkout (prenda + marcaje).
+    unitPrice: number;
     marks: { zone: string; technique: string }[];
   }[];
 };
@@ -45,9 +47,10 @@ export function emailFooter(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): {
   };
 }
 
-// Gato "todo OK" de Diseño (240×240, 4 KB) — solo en los correos al cliente.
+// Gato "todo OK" (el de Josep, recortado por Diseño; 480×480 mostrado a 120 px para
+// pantallas @2x, 59 KB) — solo en los correos al cliente.
 export function catHtml(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): string {
-  return `<p style="margin:8px 0 0"><img src="${escapeHtml(siteUrl)}/email/gato-todo-ok.png" width="120" height="120" alt="Todo OK" style="display:block;border:0"></p>`;
+  return `<p style="margin:8px 0 0"><img src="${escapeHtml(siteUrl)}/email/gato-todo-ok.jpg" width="120" height="120" alt="Todo OK" style="display:block;border:0"></p>`;
 }
 
 export const orderNumber = (id: string) => id.slice(0, 8);
@@ -63,10 +66,10 @@ export function paymentBlock(method: string): { text: string; html: string } {
   const how = "En breve te indicamos cómo pagar.";
   const deadline =
     method === "transferencia"
-      ? ` Si eliges transferencia, tienes ${TRANSFER_PAYMENT_DEADLINE_DAYS} días naturales para hacerla; pasado ese plazo el pedido se cancela.`
+      ? ` Tienes ${TRANSFER_PAYMENT_DEADLINE_DAYS} días naturales para hacerla; pasado ese plazo el pedido se cancela.`
       : "";
   const methodLabel = { tarjeta: "tarjeta", bizum: "Bizum", transferencia: "transferencia" }[method] ?? method;
-  const text = `Forma de pago elegida: ${methodLabel}. ${how}${deadline}`;
+  const text = `Forma de pago: ${methodLabel}. ${how}${deadline}`;
   return { text, html: escapeHtml(text) };
 }
 
@@ -74,7 +77,7 @@ function summary(order: EmailOrder) {
   const text = order.lines
     .map((l) => {
       const marks = l.marks.length ? ` · marcaje: ${l.marks.map((m) => `${zoneLabel(m.zone)} (${m.technique})`).join(", ")}` : "";
-      return `- ${l.quantity} × ${l.productName} (talla ${l.size}, ${l.color})${marks}`;
+      return `- ${l.quantity} × ${l.productName} (talla ${l.size}, ${l.color})${marks} — ${eur(l.unitPrice)}/ud + IVA = ${eur(l.unitPrice * l.quantity)} + IVA`;
     })
     .join("\n");
   const html = order.lines
@@ -82,13 +85,19 @@ function summary(order: EmailOrder) {
       const marks = l.marks.length
         ? `<br><span style="color:#6b625c">Marcaje: ${escapeHtml(l.marks.map((m) => `${zoneLabel(m.zone)} (${m.technique})`).join(", "))}</span>`
         : "";
-      return `<li style="margin:0 0 8px">${l.quantity} × <strong>${escapeHtml(l.productName)}</strong> (talla ${escapeHtml(l.size)}, ${escapeHtml(l.color)})${marks}</li>`;
+      return `<li style="margin:0 0 8px">${l.quantity} × <strong>${escapeHtml(l.productName)}</strong> (talla ${escapeHtml(l.size)}, ${escapeHtml(l.color)})${marks}<br>${eur(l.unitPrice)}/ud + IVA = ${eur(l.unitPrice * l.quantity)} + IVA</li>`;
     })
     .join("");
+  // Mismos importes que el checkout: base = líneas − descuento; el envío ya
+  // lleva IVA incluido; IVA = lo que falta hasta el total.
+  const base = order.lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0) - order.discountAmount;
+  const vat = order.total - order.shippingCost - base;
   const totals = [
     order.discountAmount > 0 ? `Descuento: -${eur(order.discountAmount)}` : null,
-    `Envío: ${order.shippingCost > 0 ? eur(order.shippingCost) : "gratis"}`,
-    `Total (IVA incluido): ${eur(order.total)}`,
+    `Base imponible: ${eur(base)}`,
+    `IVA (21 %): ${eur(vat)}`,
+    `Envío (IVA incluido): ${order.shippingCost > 0 ? eur(order.shippingCost) : "gratis"}`,
+    `Total: ${eur(order.total)}`,
   ].filter(Boolean) as string[];
   return { text: `${text}\n\n${totals.join("\n")}`, html, totals };
 }

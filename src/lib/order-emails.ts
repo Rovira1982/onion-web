@@ -39,6 +39,7 @@ async function loadOrder(orderId: string): Promise<EmailOrder | null> {
       productName: l.productVariant?.product.name ?? "Producto",
       size: l.productVariant?.size ?? "",
       color: l.productVariant?.color ?? "",
+      unitPrice: parseFloat(l.unitPrice.toString()),
       marks: l.marks,
     })),
   };
