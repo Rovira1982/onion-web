@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
   const apiKey = process.env.RESEND_API_KEY;
   const toEmail = process.env.CONTACT_TO_EMAIL;
+  // Acepta "Nombre <correo>" (como está en Railway) o solo el correo.
   const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 
   if (!apiKey || !toEmail) {
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: `Onion and Back <${fromEmail}>`,
+      from: fromEmail.includes("<") ? fromEmail : `Onion and Back <${fromEmail}>`,
       to: [toEmail],
       reply_to: email,
       subject: `Nueva solicitud de presupuesto de ${nombre}`,
