@@ -36,6 +36,13 @@ describe("correos de pedido", () => {
     expect(buildOrderConfirmation({ ...order, paymentMethod: "tarjeta" }).text).not.toContain("días naturales");
   });
 
+  it("los tres correos llevan el pie legal", () => {
+    for (const m of [buildOrderConfirmation(order), buildPaymentReceived(order), buildNewOrderNotice(order, "u")]) {
+      expect(m.text).toContain("NIF 53214051D");
+      expect(m.html).toContain("/privacidad");
+    }
+  });
+
   it("pago recibido y aviso interno", () => {
     expect(buildPaymentReceived(order).subject).toBe("Pago recibido, nos ponemos manos a la obra");
     expect(buildNewOrderNotice(order, "https://x/admin/pedidos/1").text).toContain("https://x/admin/pedidos/1");

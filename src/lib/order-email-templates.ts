@@ -29,6 +29,22 @@ export type EmailContent = { subject: string; text: string; html: string };
 const BRAND = "#EF7904";
 const INK = "#141110";
 
+// Pie legal de los correos automáticos — único sitio; el nombre legal puede
+// cambiar tras consultar a Morell (datos confirmados por Josep, 2026-10-03).
+export const EMAIL_FOOTER_IDENTITY =
+  "Onion And Back · Josep Antoni Rovira Soler (NIF 53214051D) · Calle Huerto, 18, 03769 El Ràfol d'Almúnia (Alicante) · Tel. 616 11 40 95 · info@onionandback.com";
+export const PRIVACY_POLICY_PATH = "/privacidad";
+const FOOTER_DATA_NOTICE =
+  "Tratamos tus datos para gestionar tu pedido. Derechos, oposición y retirada del consentimiento: info@onionandback.com.";
+
+export function emailFooter(siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""): { text: string; html: string } {
+  const privacy = `${siteUrl}${PRIVACY_POLICY_PATH}`;
+  return {
+    text: `\n\n--\n${EMAIL_FOOTER_IDENTITY}\n${FOOTER_DATA_NOTICE} Política de privacidad: ${privacy}`,
+    html: `<p style="margin:16px 0 0;color:#6b625c;font-size:12px">${escapeHtml(EMAIL_FOOTER_IDENTITY)}<br>${escapeHtml(FOOTER_DATA_NOTICE)} Política de privacidad: <a href="${escapeHtml(privacy)}" style="color:#6b625c">${escapeHtml(privacy)}</a></p>`,
+  };
+}
+
 export const orderNumber = (id: string) => id.slice(0, 8);
 const eur = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
 const escapeHtml = (s: string) =>
@@ -77,6 +93,7 @@ function wrapHtml(body: string): string {
 <div style="border-bottom:3px solid ${BRAND};padding-bottom:8px;margin-bottom:16px;font-size:18px;font-weight:bold;color:${BRAND}">Onion and Back</div>
 ${body}
 <p style="margin-top:24px;color:#6b625c;font-size:13px">Puedes responder a este correo para cualquier duda.</p>
+${emailFooter().html}
 </div>`;
 }
 
@@ -96,7 +113,7 @@ ${pay.text}
 Cuando recibamos el pago nos ponemos manos a la obra.
 
 Un abrazo,
-El equipo de Onion and Back`;
+El equipo de Onion and Back${emailFooter().text}`;
   const html = wrapHtml(`<p>Hola${name ? ` ${escapeHtml(name)}` : ""}, ¡gracias por tu pedido!</p>
 <p>Hemos recibido tu pedido <strong>nº ${n}</strong>. Este es el resumen:</p>
 <ul style="padding-left:18px">${s.html}</ul>
@@ -117,7 +134,7 @@ Hemos recibido el pago de tu pedido nº ${n} y nos ponemos manos a la obra.
 Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), responde a este correo y lo adjuntas.
 
 Un abrazo,
-El equipo de Onion and Back`;
+El equipo de Onion and Back${emailFooter().text}`;
   const html = wrapHtml(`<p>Hola${name ? ` ${escapeHtml(name)}` : ""}, ¡pago recibido!</p>
 <p>Hemos recibido el pago de tu pedido <strong>nº ${n}</strong> y nos ponemos manos a la obra.</p>
 <p>Si falta algo por tu parte (por ejemplo tu logo o los datos de las prendas), responde a este correo y lo adjuntas.</p>
@@ -137,7 +154,7 @@ export function buildNewOrderNotice(order: EmailOrder, adminUrl: string): EmailC
   ];
   return {
     subject: `Nuevo pedido ${n} — ${order.invoiceName} — ${eur(order.total)}`,
-    text: lines.join("\n"),
+    text: lines.join("\n") + emailFooter().text,
     html: wrapHtml(lines.map((l) => `<p style="margin:4px 0">${escapeHtml(l)}</p>`).join("")),
   };
 }
