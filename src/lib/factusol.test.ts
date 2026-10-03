@@ -57,14 +57,18 @@ describe("exportación a FactuSol", () => {
 
   it("el envío va sin IVA: 6 € → 4,96 €", () => {
     expect(shippingNet(6)).toBe(4.96);
-    const rows = lineaRows(1, lines, 6);
+    const rows = lineaRows(1, lines, 7);
     const ship = rows.find((r) => r.D === "SRV-PORTES")!;
-    expect(ship.J).toBe(4.96);
+    expect(ship.J).toBe(5.79);
     expect(rows).toHaveLength(3 + 2 + 1);
   });
 
   it("el aviso cuadra con el envío incluido (total 211,02 €)", () => {
     expect(exportWarning({ id: "abcdef12", total: 211.02, shippingCost: 6, discountAmount: 0 }, lines)).toBeNull();
+  });
+
+  it("con envío de 7 € el aviso también cuadra (total 212,02 €)", () => {
+    expect(exportWarning({ id: "abcdef12", total: 212.02, shippingCost: 7, discountAmount: 0 }, lines)).toBeNull();
   });
 
   it("avisa si las líneas no cuadran con la base", () => {

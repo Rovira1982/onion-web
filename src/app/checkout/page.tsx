@@ -19,11 +19,11 @@ const PAYMENT_METHODS: { value: "tarjeta" | "bizum" | "transferencia"; label: st
   { value: "transferencia", label: "Transferencia" },
 ];
 
-// Envío al cliente — 6€ fijo, gratis desde 300€ de importe final (con
+// Envío al cliente — 7€ fijo (IVA incluido; antes 6€, subido el 2026-10-03 por el coste real de Packlink), gratis desde 300€ de importe final (con
 // descuento e IVA incluidos, sin contar el propio envío). Debe coincidir
 // exactamente con la regla del servidor en checkout/actions.ts — esto es
 // solo la vista previa, el pedido real se recalcula ahí.
-const SHIPPING_COST = 6;
+const SHIPPING_COST = 7;
 const FREE_SHIPPING_THRESHOLD = 300;
 
 export default function CheckoutPage() {

@@ -20,10 +20,10 @@ import { rateLimited } from "@/lib/rate-limit";
 // mirar si el cliente aceptó cookies de marketing.
 const MARKETING_CONSENT_COOKIE = "oab_marketing_consent";
 
-// Envío al cliente — 6€ fijo, gratis desde 300€ de importe final (con
+// Envío al cliente — 7€ fijo (IVA incluido; antes 6€, subido el 2026-10-03 por el coste real de Packlink), gratis desde 300€ de importe final (con
 // descuento e IVA incluidos, sin contar el propio envío). Decisión del
 // dueño, 2026-09-30.
-const SHIPPING_COST = 6;
+const SHIPPING_COST = 7;
 const FREE_SHIPPING_THRESHOLD = 300;
 
 export type CheckoutDesign = {

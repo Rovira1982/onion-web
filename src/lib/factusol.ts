@@ -398,7 +398,7 @@ export function groupMarks(lines: LineaSource[]): LineaSource["marks"] {
   return [...groups.values()];
 }
 
-// El envío se cobra con IVA incluido (6 €); FactuSol lleva las líneas sin IVA.
+// El envío se cobra con IVA incluido (7 €); FactuSol lleva las líneas sin IVA.
 export const shippingNet = (shippingCost: number) => Math.round((shippingCost / 1.21) * 100) / 100;
 
 export function lineaRows(
@@ -458,7 +458,7 @@ export function lineaRows(
 }
 
 // Comprobación pedida por Finanzas (2026-10-03): la suma de las líneas
-// exportadas (prendas + marcaje + envío sin IVA, SRV-PORTES a 6 / 1,21) debe
+// exportadas (prendas + marcaje + envío sin IVA, SRV-PORTES a 7 / 1,21 = 5,79) debe
 // igualar la base del pedido (total / 1,21 + descuento), o el marcaje se
 // estaría cobrando dos veces / faltaría. Tolerancia de 1 céntimo. Devuelve el
 // aviso a enseñar a Finanzas o null si cuadra.
