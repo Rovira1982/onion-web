@@ -17,12 +17,11 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
+import { cleanName, cleanDescription } from "./text-clean";
+import { slugify } from "../src/lib/product-format";
 
 const BASE_URL = process.env.MAKITO_BASE_URL ?? "https://apis.makito.es";
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 function parseArgs() {
   const limitArg = process.argv.find((a) => a.startsWith("--limit="));
@@ -92,6 +91,20 @@ const MAKITO_SIZE_CODE: Record<string, string> = {
   "108": "4XL",
 };
 
+// Makito escribe a veces la talla en el nombre de otra forma que el código
+// global (la 3XL como "XXXL", la XXL como "2XL"): sin estos alias el sufijo
+// no se quitaba y el color quedaba como "Amarillo XXXL" (Rauric, Epika...).
+const SIZE_NAME_ALIASES: Record<string, string[]> = {
+  XXL: ["XXL", "2XL"],
+  "3XL": ["3XL", "XXXL"],
+  "4XL": ["4XL", "XXXXL"],
+};
+
+export function sizeTailPattern(sizeLabel: string): RegExp {
+  const names = SIZE_NAME_ALIASES[sizeLabel] ?? [sizeLabel];
+  return new RegExp(`\\s*(?:${names.join("|")})\\s*$`, "i");
+}
+
 export function sizeLabelFor(variant: MakitoVariant): string | null {
   if (!variant.variant_size) return null;
   return MAKITO_SIZE_CODE[variant.variant_size] ?? null;
@@ -125,7 +138,7 @@ export function fallbackBoilerplate(allVariants: MakitoVariant[], sizeLabelOf: (
     .map((v) => {
       const name = v.variant_name ?? "";
       const size = sizeLabelOf(v);
-      return size ? name.replace(new RegExp(`\\s*${size}\\s*$`, "i"), "") : name;
+      return size ? name.replace(sizeTailPattern(size), "") : name;
     })
     .filter(Boolean);
   if (stripped.length === 0) return "";
@@ -154,7 +167,7 @@ export function parseColorLabel(
     label = variantName;
   }
   if (sizeLabel) {
-    label = label.replace(new RegExp(`\\s*${sizeLabel}\\s*$`, "i"), "");
+    label = label.replace(sizeTailPattern(sizeLabel), "");
   }
   label = label.replace(/\s+/g, " ").trim();
   return label || null;
@@ -162,14 +175,6 @@ export function parseColorLabel(
 
 type MakitoPriceRow = { material: string; currency: string; baseQuantity: string; scales: { quantity: string; amount: string }[] };
 
-export function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 // Código real de Makito para stock y pedidos: ref del producto + código de
 // color + talla (ej. "15246"+"003"+"000" -> "15246003000"), confirmado
@@ -267,8 +272,8 @@ async function main() {
     const product = await prisma.product.upsert({
       where: { supplierId_supplierSku: { supplierId: supplier.id, supplierSku: p.ref } },
       update: {
-        name: p.name,
-        description: (p.description ?? "").replace(/<[^>]+>/g, "").trim() || null,
+        name: cleanName(p.name),
+        description: cleanDescription(p.description ?? "") || null,
         brand: "Makito",
         categoryId,
         basePrice,
@@ -281,8 +286,8 @@ async function main() {
       create: {
         supplierId: supplier.id,
         supplierSku: p.ref,
-        name: p.name,
-        description: (p.description ?? "").replace(/<[^>]+>/g, "").trim() || null,
+        name: cleanName(p.name),
+        description: cleanDescription(p.description ?? "") || null,
         brand: "Makito",
         categoryId,
         basePrice,

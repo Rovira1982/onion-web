@@ -1,0 +1,38 @@
+import { describe, expect, it } from "vitest";
+import { cleanDescription, cleanName } from "./text-clean";
+import { parseColorLabel, sizeTailPattern } from "./import-makito";
+
+describe("limpieza de textos de proveedor", () => {
+  it("quita HTML y dobles espacios de un nombre", () => {
+    expect(cleanName("Calzado de seguridad Climb GTX<br/>")).toBe("Calzado de seguridad Climb GTX");
+    expect(cleanName("Sudadera  ecorresponsable de cuello redondo")).toBe("Sudadera ecorresponsable de cuello redondo");
+    expect(cleanName("EUROPA  ")).toBe("EUROPA");
+  });
+
+  it("deja un nombre normal igual", () => {
+    expect(cleanName("Camiseta algodón 160g")).toBe("Camiseta algodón 160g");
+  });
+
+  it("limpia HTML y entidades de una descripción conservando los saltos de línea", () => {
+    expect(cleanDescription("Línea 1<br/>Línea&nbsp;2 &amp; más")).toBe("Línea 1\nLínea 2 & más");
+  });
+
+  it("no toca null ni descripciones sin HTML", () => {
+    expect(cleanDescription(null)).toBeNull();
+    expect(cleanDescription("  texto simple ")).toBe("texto simple");
+  });
+});
+
+describe("tallas de Makito escritas con otro nombre", () => {
+  it("reconoce 2XL como XXL y XXXL como 3XL", () => {
+    expect(sizeTailPattern("XXL").test("Blanco 2XL")).toBe(true);
+    expect(sizeTailPattern("3XL").test("Amarillo XXXL")).toBe(true);
+    expect(sizeTailPattern("M").test("Blanco XL")).toBe(false);
+  });
+
+  it("deja el color limpio al quitar el sufijo", () => {
+    expect(parseColorLabel("Epika", "Camiseta Epika Blanco 2XL", "XXL")).toBe("Blanco");
+    expect(parseColorLabel("Rauric", "Polo Rauric Amarillo XXXL", "3XL")).toBe("Amarillo");
+    expect(parseColorLabel("Dretius", "Sudadera Dretius Gris L", "L")).toBe("Gris");
+  });
+});

@@ -7,15 +7,13 @@
 // y factusol-import\Codigos_FACTUSOL.csv.
 import fs from "node:fs";
 import Papa from "papaparse";
-import { PrismaClient, Prisma } from "../src/generated/prisma";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { Prisma } from "../src/generated/prisma";
+import { prisma } from "./_client";
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
 const VARIANT_BATCH_SIZE = 500; // ~250 round trips instead of 122k — public proxy latency makes one-by-one impractical
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 const MAESTRO_ROOT = "E:\\onion\\26\\finanzas\\maestro-precios";
 // --dir=csv_v1.4 to point at a different export (e.g. a pricing-rule

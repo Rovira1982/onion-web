@@ -7,11 +7,8 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 // Kept in sync by hand with OCCASION_ORDER in src/lib/products.ts (that file
 // has a "server-only" guard, so it can't be imported from a plain tsx

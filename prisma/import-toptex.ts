@@ -13,8 +13,9 @@ config({ path: ".env.local" });
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
+import { cleanName, cleanDescription } from "./text-clean";
+import { slugify } from "../src/lib/product-format";
 
 // Cache for the bulk price/inventory download (~300 requests, several
 // minutes) — the process has died mid-catalog-loop a couple of times on
@@ -38,8 +39,6 @@ const INVENTORY_CACHE = `${CACHE_DIR}/toptex-inventory-cache.json`;
 // are idempotent so that was never wrong, just slow against a flaky API).
 const PAGE_CHECKPOINT = `${CACHE_DIR}/toptex-page-checkpoint.json`;
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 const BASE_URL = process.env.TOPTEX_BASE_URL ?? "https://api.toptex.io";
 // Confirmed live: page_size 100 on the catalog endpoint can exceed the API
@@ -53,14 +52,6 @@ const MARGEN = 2;
 
 const TOP_CATEGORY = "Ropa Laboral"; // ver comentario en import-cifra.ts: bucket previsto para TopTex
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 let token: string | null = null;
 async function getToken(forceRefresh = false): Promise<string> {
@@ -131,9 +122,25 @@ type ToptexPrice = { sku: string; prices: ToptexPriceTier[] };
 // with its own `stock` number — sum them for total available stock.
 type ToptexInventoryItem = { sku: string; warehouses?: { id: string; stock: number }[] };
 
+// 96 productos visibles se quedaron sin foto (2026-10-03) porque solo se
+// miraba la etiqueta "FACE SIDE": TopTex etiqueta las fotos de otros
+// productos como "FACE", "SIDE" o "BACK" (PR210, BBDAVIS, WR18S, UPRL20476...).
+const PACKSHOT_PRIORITY = ["FACE SIDE", "FACE", "SIDE", "BACK"];
+function packshotUrl(packshots?: Record<string, { url_packshot: string }>): string | undefined {
+  if (!packshots) return undefined;
+  for (const key of PACKSHOT_PRIORITY) {
+    if (packshots[key]?.url_packshot) return packshots[key].url_packshot;
+  }
+  return Object.values(packshots).find((p) => p?.url_packshot)?.url_packshot;
+}
+
 const BULK_PAGE_SIZE = 500; // price/inventory rows are lightweight, but 2000 hit a 504 mid-pagination — 500 is safer
 
-async function toptexGetWithRetry(path: string, attempts = 5): Promise<any> {
+// 8 intentos con espera creciente (3s, 6s, 12s... tope 60s): la noche del
+// 2026-10-03 TopTex devolvió 504 durante más de 2 minutos seguidos en una
+// página del inventario y los 5 intentos anteriores (≈2,5 min) no bastaron,
+// lo que tiró abajo toda la importación y marcó el sync diario como caído.
+async function toptexGetWithRetry(path: string, attempts = 8): Promise<any> {
   for (let i = 1; i <= attempts; i++) {
     try {
       return await toptexGet(path);
@@ -142,8 +149,36 @@ async function toptexGetWithRetry(path: string, attempts = 5): Promise<any> {
         err instanceof Error && (err.message.includes("504") || err.message.includes("ResponseSizeTooLarge"));
       if (!retryable || i === attempts) throw err;
       console.log(`  (fallo transitorio en intento ${i}/${attempts}, reintentando: ${path})`);
-      await new Promise((r) => setTimeout(r, 2000 * i));
+      await new Promise((r) => setTimeout(r, Math.min(60_000, 3000 * 2 ** (i - 1))));
     }
+  }
+}
+
+const SMALL_PAGE_SIZE = 100;
+
+// Si una página grande sigue fallando tras todos los reintentos (suele ser un
+// tramo pesado para su pasarela), se pide ese mismo tramo en trozos de 100
+// filas antes de rendirse — mismas filas, respuestas más ligeras.
+async function fetchBulkPage(
+  pathBase: string,
+  page: number
+): Promise<{ [key: string]: unknown; total_count?: number }> {
+  try {
+    return await toptexGetWithRetry(`${pathBase}&page_number=${page}&page_size=${BULK_PAGE_SIZE}`);
+  } catch (err) {
+    console.log(`  ⚠ página ${page} falla en bloque, la pido en trozos de ${SMALL_PAGE_SIZE}: ${(err as Error).message.slice(0, 120)}`);
+    const ratio = BULK_PAGE_SIZE / SMALL_PAGE_SIZE;
+    const merged: { [key: string]: unknown; items: unknown[]; total_count?: number } = { items: [] };
+    for (let k = 0; k < ratio; k++) {
+      const sub = (page - 1) * ratio + k + 1;
+      const part = (await toptexGetWithRetry(`${pathBase}&page_number=${sub}&page_size=${SMALL_PAGE_SIZE}`, 4)) as {
+        items?: unknown[];
+        total_count?: number;
+      };
+      merged.items.push(...(part.items ?? []));
+      if (typeof part.total_count === "number") merged.total_count = part.total_count;
+    }
+    return merged;
   }
 }
 
@@ -152,10 +187,7 @@ async function fetchAllPages<T>(pathBase: string, itemsKey = "items"): Promise<T
   let page = 1;
   let totalPages = Infinity;
   while (page <= totalPages) {
-    const res = (await toptexGetWithRetry(`${pathBase}&page_number=${page}&page_size=${BULK_PAGE_SIZE}`)) as {
-      [key: string]: unknown;
-      total_count?: number;
-    };
+    const res = await fetchBulkPage(pathBase, page);
     const items = (res[itemsKey] as T[]) ?? [];
     if (items.length === 0) break;
     all.push(...items);
@@ -281,13 +313,13 @@ async function main() {
 
       const categoryId = await categoryIdFor(item.family?.es ?? "Otros artículos");
       const primaryImage =
-        item.colors[0]?.packshots?.["FACE SIDE"]?.url_packshot ?? item.images?.[0]?.url_image ?? "";
+        item.colors.map((c) => packshotUrl(c.packshots)).find(Boolean) ?? item.images?.[0]?.url_image ?? "";
 
       const product = await prisma.product.upsert({
         where: { supplierId_supplierSku: { supplierId: supplier.id, supplierSku: item.catalogReference } },
         update: {
-          name: item.designation?.es ?? item.catalogReference,
-          description: item.description?.es ?? "",
+          name: cleanName(item.designation?.es ?? item.catalogReference),
+          description: cleanDescription(item.description?.es ?? ""),
           brand: item.brand || null,
           subcategory: item.sub_family?.es || null,
           material: item.composition?.es || null,
@@ -299,8 +331,8 @@ async function main() {
         create: {
           supplierId: supplier.id,
           supplierSku: item.catalogReference,
-          name: item.designation?.es ?? item.catalogReference,
-          description: item.description?.es ?? "",
+          name: cleanName(item.designation?.es ?? item.catalogReference),
+          description: cleanDescription(item.description?.es ?? ""),
           brand: item.brand || null,
           subcategory: item.sub_family?.es || null,
           material: item.composition?.es || null,
@@ -323,7 +355,7 @@ async function main() {
       let colorImagePosition = 1;
       for (const c of item.colors) {
         const color = c.colors?.es?.trim();
-        const url = c.packshots?.["FACE SIDE"]?.url_packshot;
+        const url = packshotUrl(c.packshots);
         if (!color || !url || url === primaryImage) continue;
         // id determinista -> upsert en una sola consulta (ver nota en
         // import-cifra.ts: findFirst+create duplicaba el tiempo total).

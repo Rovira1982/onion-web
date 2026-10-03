@@ -15,11 +15,8 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import { writeFileSync } from "fs";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 const BASE_URL = process.env.TOPTEX_BASE_URL ?? "https://api.toptex.io";
 const BULK_PAGE_SIZE = 500;

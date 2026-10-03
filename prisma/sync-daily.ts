@@ -14,13 +14,30 @@ const SCRIPTS = ["import-cifra.ts", "import-valento.ts", "import-toptex.ts"];
 
 let failures = 0;
 
+// Un fallo pasajero del proveedor (p. ej. TopTex con 504 durante minutos, la
+// noche del 2026-10-03) no debe marcar toda la ejecución como caída: cada
+// script se reintenta una vez tras 5 minutos antes de darlo por fallido.
+const RETRY_WAIT_MS = 5 * 60_000;
+const sleepSync = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
 for (const script of SCRIPTS) {
-  console.log(`\n=== ${script} — ${new Date().toISOString()} ===`);
-  try {
-    execFileSync("npx", ["tsx", `prisma/${script}`], { stdio: "inherit", shell: true });
-  } catch (err) {
+  let ok = false;
+  for (let attempt = 1; attempt <= 2 && !ok; attempt++) {
+    console.log(`\n=== ${script} (intento ${attempt}/2) — ${new Date().toISOString()} ===`);
+    try {
+      execFileSync("npx", ["tsx", `prisma/${script}`], { stdio: "inherit", shell: true });
+      ok = true;
+    } catch (err) {
+      console.error(`✗ ${script} falló en el intento ${attempt}.`, err instanceof Error ? err.message : err);
+      if (attempt < 2) {
+        console.log(`  Reintento en ${RETRY_WAIT_MS / 60_000} min...`);
+        sleepSync(RETRY_WAIT_MS);
+      }
+    }
+  }
+  if (!ok) {
     failures++;
-    console.error(`✗ ${script} falló, continuando con el siguiente proveedor.`, err instanceof Error ? err.message : err);
+    console.error(`✗ ${script} falló dos veces, continuando con el siguiente proveedor.`);
   }
 }
 

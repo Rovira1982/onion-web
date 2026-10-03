@@ -11,11 +11,9 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import { appendFileSync, writeFileSync } from "node:fs";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { cleanText, HTML_REMNANT, squash } from "./text-clean";
+import { prisma } from "./_client";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 const FIX = process.argv.includes("--fix");
 const DELETE_LOG = `audit-catalog-deleted-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`;
@@ -54,33 +52,6 @@ function markFixed(control: ControlId, kind: string, n = 1) {
 }
 
 const SIZE_TAIL = /\s(XXS|XS|S|M|L|XL|XXL|XXXL|XXXXL|[2-6]XL)$/i;
-const HTML_REMNANT = /<\/?[a-z][^>]*>|&[a-z]{2,8};|&#\d+;/i;
-const NAMED_ENTITIES: Record<string, string> = {
-  nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", ntilde: "ñ", Ntilde: "Ñ",
-  aacute: "á", eacute: "é", iacute: "í", oacute: "ó", uacute: "ú", Aacute: "Á", Eacute: "É",
-  Iacute: "Í", Oacute: "Ó", Uacute: "Ú", uuml: "ü", Uuml: "Ü", ordm: "º", ordf: "ª",
-  euro: "€", deg: "°", middot: "·", hellip: "…", ndash: "–", mdash: "—", laquo: "«", raquo: "»",
-};
-
-function cleanText(s: string): string {
-  return s
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|tr|h\d)>/gi, "\n")
-    .replace(/<li[^>]*>/gi, "- ")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
-    .replace(/&([a-zA-Z]+);/g, (m, name) => NAMED_ENTITIES[name] ?? m)
-    .replace(/[ \t ]+/g, " ")
-    .replace(/ *\n */g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function squash(s: string): string {
-  return s.replace(/\s+/g, " ").trim();
-}
-
 function colorKey(s: string): string {
   return s
     .toLowerCase()

@@ -1,3 +1,4 @@
+import { slugify } from "../src/lib/product-format";
 // Live data source for the Cifra import (prisma/import-cifra.ts). Pulls the
 // confidential (wholesale/cost) pricelist from Cifra's own API — confirmed
 // live 2026-09-29, see .env.local for CIFRA_API_BASE_URL / CIFRA_API_TOKEN
@@ -54,14 +55,6 @@ export type CifraRow = {
 
 const FALLBACK_CATEGORY = "Otros artículos";
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 function stripHtml(input: string | null | undefined) {
   if (!input) return "";

@@ -16,11 +16,10 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
+import { cleanName, cleanDescription } from "./text-clean";
+import { slugify } from "../src/lib/product-format";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 const MARGEN = 2; // Gorfactory es precio de mayorista: ×2 sobre coste (el ×1.4 de pricing.ts se queda corto en prenda lisa/regalo)
 const WAREHOUSE = "01"; // único código de almacén confirmado en pruebas en vivo
@@ -104,14 +103,6 @@ function getUserStock(params: { brand: string; whscode: string }) {
   return gfPost(`/api/v1/stock/getuserstock`, form) as Promise<{ stock: { sku: string; onhand: string }[] | null }>;
 }
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 async function importBrand(opts: { brand: string; supplierName: string; topCategory: string }) {
   console.log(`\nDescargando ${opts.supplierName} desde la API de Gorfactory...`);
@@ -179,8 +170,8 @@ async function importBrand(opts: { brand: string; supplierName: string; topCateg
     const product = await prisma.product.upsert({
       where: { supplierId_supplierSku: { supplierId: supplier.id, supplierSku: modelCode } },
       update: {
-        name: rep.modelname || modelCode,
-        description: rep.description || "",
+        name: cleanName(rep.modelname || modelCode),
+        description: cleanDescription(rep.description || ""),
         brand: opts.supplierName,
         material: rep.composition || null,
         basePrice,
@@ -191,8 +182,8 @@ async function importBrand(opts: { brand: string; supplierName: string; topCateg
       create: {
         supplierId: supplier.id,
         supplierSku: modelCode,
-        name: rep.modelname || modelCode,
-        description: rep.description || "",
+        name: cleanName(rep.modelname || modelCode),
+        description: cleanDescription(rep.description || ""),
         brand: opts.supplierName,
         material: rep.composition || null,
         basePrice,

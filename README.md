@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Onion and Back — web
 
-## Getting Started
+Tienda de regalos de empresa y merchandising personalizado. Next.js 16 (App Router), React 19, Tailwind v4, Prisma 7 sobre Postgres. Despliegue en Railway.
 
-First, run the development server:
+## Servicios en Railway
+
+- **web** — la tienda y el panel `/admin`. Se despliega solo al hacer push a `main`.
+- **sync-daily** — cron diario (`npm run sync:daily`): Cifra, Valento y TopTex, con un reintento por proveedor si falla.
+- **Postgres** — base de datos.
+
+## Comandos
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev            # servidor local
+npm test               # tests (vitest)
+npm run sync:daily     # sincroniza los proveedores automáticos
+npm run audit:catalogo # auditoría de calidad de datos (solo informa; --fix limpia lo seguro)
+npm run batch:tandas   # consolida pedidos pagados en borradores de pedido a proveedor
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Proveedores
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Importadores en `prisma/import-*.ts` (Roly/Stamina, Makito, Enyes, Anbor se lanzan a mano). Tras importar un proveedor nuevo, correr `npm run audit:catalogo` y revisar el informe antes de dar el catálogo por bueno. Los textos de proveedor se limpian al importar (`prisma/text-clean.ts`).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Visible en la tienda = con stock, con precio mayor que 0 y con al menos una foto (`VISIBLE` en `src/lib/products.ts`).
 
-## Learn More
+## Cuenta atrás de prelanzamiento
 
-To learn more about Next.js, take a look at the following resources:
+Mientras `LAUNCH_AT` (ISO 8601) esté en el futuro, todo salvo `/admin` muestra `/proximamente`. El equipo entra con `?preview=<LAUNCH_BYPASS_TOKEN>`. Sin `LAUNCH_AT` el sitio está abierto. Ver `src/lib/launch.ts` y `src/proxy.ts`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Variables de entorno
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ver `.env.local` (no se sube a git): base de datos, credenciales de proveedores, R2 (logos), Meta Pixel/CAPI, sesión de admin y `NEXT_PUBLIC_SITE_URL`.

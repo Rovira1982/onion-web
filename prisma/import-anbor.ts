@@ -26,11 +26,9 @@ config({ path: ".env.local" });
 
 import * as path from "node:path";
 import * as XLSX from "xlsx";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
+import { cleanName, cleanDescription } from "./text-clean";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 const HEADER_NAMES = {
   parentRef: "Referencia padre",
@@ -153,8 +151,8 @@ async function main() {
     const product = await prisma.product.upsert({
       where: { supplierId_supplierSku: { supplierId: supplier.id, supplierSku: parentRef } },
       update: {
-        name: rep.name,
-        description: rep.description || null,
+        name: cleanName(rep.name),
+        description: cleanDescription(rep.description) || null,
         material: rep.material,
         brand: "Anbor",
         categoryId: category.id,
@@ -166,8 +164,8 @@ async function main() {
       create: {
         supplierId: supplier.id,
         supplierSku: parentRef,
-        name: rep.name,
-        description: rep.description || null,
+        name: cleanName(rep.name),
+        description: cleanDescription(rep.description) || null,
         material: rep.material,
         brand: "Anbor",
         categoryId: category.id,

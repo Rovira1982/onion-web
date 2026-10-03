@@ -8,11 +8,10 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma";
+import { prisma } from "./_client";
+import { cleanName, cleanDescription } from "./text-clean";
+import { slugify } from "../src/lib/product-format";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 const BASE_URL = process.env.VALENTO_BASE_URL ?? "https://www.valento.es/rest";
 const PAGE_SIZE = 50;
@@ -24,14 +23,6 @@ const MARGEN = 2;
 
 const TOP_CATEGORY = "Ropa Laboral"; // mismo bucket que TopTex — ver import-cifra.ts
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 async function main() {
   console.log("Importando catálogo de Valento a la base de datos...\n");
@@ -88,8 +79,8 @@ async function main() {
       const product = await prisma.product.upsert({
         where: { supplierId_supplierSku: { supplierId: supplier.id, supplierSku: p.article_ref } },
         update: {
-          name: p.name,
-          description: p.description,
+          name: cleanName(p.name),
+          description: cleanDescription(p.description),
           brand: p.brand || null,
           material: p.characteristics?.composicion || null,
           basePrice,
@@ -100,8 +91,8 @@ async function main() {
         create: {
           supplierId: supplier.id,
           supplierSku: p.article_ref,
-          name: p.name,
-          description: p.description,
+          name: cleanName(p.name),
+          description: cleanDescription(p.description),
           brand: p.brand || null,
           material: p.characteristics?.composicion || null,
           basePrice,
