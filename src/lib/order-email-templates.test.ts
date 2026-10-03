@@ -28,7 +28,7 @@ describe("correos de pedido", () => {
     expect(m.text).toContain("IVA (21 %): 6,04 €");
     expect(m.text).toContain("Total: 36,04 €");
     expect(m.text).toContain(`Tienes ${TRANSFER_PAYMENT_DEADLINE_DAYS} días naturales`);
-    expect(m.text).toContain("IBAN ES98 0049 6852 6729 9001 5097 (Banco Santander)");
+    expect(m.text).toContain("IBAN ES98 0049 6852 6729 9001 5097 (Banco Santander, titular Josep Antoni Rovira Soler)");
     expect(m.text).toContain("concepto el nº de pedido abcdef12");
     expect(m.text).not.toContain("Si eliges transferencia");
   });
