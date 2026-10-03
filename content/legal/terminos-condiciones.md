@@ -4,7 +4,7 @@
 
 ## 1. Identificación del vendedor
 
-Josep Rovira Soler, NIF 53214051D, domicilio en Calle Huerto, 18, El Ràfol d'Almúnia (Alicante), email info@onionandback.com.
+Josep Antoni Rovira Soler, NIF 53214051D, domicilio en Calle Huerto, 18, El Ràfol d'Almúnia (Alicante), email info@onionandback.com.
 
 ## 2. Objeto y ámbito
 
@@ -12,7 +12,7 @@ Estas condiciones regulan la compra de productos personalizados (ropa, merchandi
 
 ## 3. Proceso de pedido
 
-El cliente selecciona el producto, sube su diseño/logotipo o indica las instrucciones de personalización, y confirma el pedido. Tras la confirmación, Josep Rovira Soler podrá ponerse en contacto para validar el diseño o el arte final antes de producir el pedido.
+El cliente selecciona el producto, sube su diseño/logotipo o indica las instrucciones de personalización, y confirma el pedido. Tras la confirmación, Josep Antoni Rovira Soler podrá ponerse en contacto para validar el diseño o el arte final antes de producir el pedido.
 
 ## 4. Precios y pago
 
@@ -28,13 +28,13 @@ Este apartado protege a los **consumidores** (personas físicas que compran para
 
 Conforme al artículo 103.c del Texto Refundido de la Ley General para la Defensa de los Consumidores y Usuarios (Real Decreto Legislativo 1/2007), **el derecho de desistimiento de 14 días no resulta de aplicación a los productos confeccionados conforme a las especificaciones del consumidor o claramente personalizados**, como es el caso de los productos personalizados con diseños, logotipos, nombres o textos a petición del cliente.
 
-Esta excepción se comunicará de forma clara al cliente **antes** de confirmar el pedido, y no exime a Josep Rovira Soler de responder ante defectos de fabricación o errores propios en la personalización (ver punto 7).
+Esta excepción se comunicará de forma clara al cliente **antes** de confirmar el pedido, y no exime a Josep Antoni Rovira Soler de responder ante defectos de fabricación o errores propios en la personalización (ver punto 7).
 
 Para los productos que se vendan sin personalizar (stock estándar sin modificar), sí aplica el derecho de desistimiento de 14 días naturales desde la recepción del producto, conforme al artículo 102 y siguientes de la misma ley. Para ejercerlo, el cliente debe comunicarlo a info@onionandback.com dentro de ese plazo, indicando el pedido y su decisión de desistir. El producto debe devolverse en su estado original, sin usar y con su embalaje, corriendo el cliente con los gastos directos de devolución salvo que la normativa exija lo contrario. El reembolso se realizará por el mismo medio de pago utilizado, en un plazo máximo de 14 días desde que se reciba el producto devuelto o se acredite su envío.
 
 ## 7. Garantía y errores de fabricación
 
-Si el producto recibido presenta un defecto de fabricación o no coincide con el diseño aprobado por causa imputable a Josep Rovira Soler, el cliente tiene derecho a la reparación, sustitución o reembolso conforme a la normativa de garantías. Debe comunicarlo a info@onionandback.com adjuntando fotografías, en un plazo de 30 días desde la recepción.
+Si el producto recibido presenta un defecto de fabricación o no coincide con el diseño aprobado por causa imputable a Josep Antoni Rovira Soler, el cliente tiene derecho a la reparación, sustitución o reembolso conforme a la normativa de garantías. Debe comunicarlo a info@onionandback.com adjuntando fotografías, en un plazo de 30 días desde la recepción.
 
 No se considera defecto de fabricación una variación razonable derivada de la técnica de personalización (por ejemplo, ligeras diferencias de color en sublimación) ni un error en el diseño que el cliente aprobó previamente.
 

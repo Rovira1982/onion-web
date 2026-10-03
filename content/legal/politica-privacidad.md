@@ -4,7 +4,7 @@
 
 ## 1. Responsable del tratamiento
 
-- Identidad: Josep Rovira Soler
+- Identidad: Josep Antoni Rovira Soler
 - NIF: 53214051D
 - Domicilio: Calle Huerto, 18, El Ràfol d'Almúnia (Alicante)
 - Email: info@onionandback.com
