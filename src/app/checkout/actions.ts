@@ -10,6 +10,7 @@ import { validateDiscountCode, type DiscountCheckResult } from "@/lib/discounts"
 import { getPack, type PackDefinition } from "@/lib/packs";
 import { slugify } from "@/lib/product-format";
 import { sendCapiEvent } from "@/lib/meta-capi";
+import { sendNewOrderEmails } from "@/lib/order-emails";
 import { cookies, headers } from "next/headers";
 import { rateLimited } from "@/lib/rate-limit";
 
@@ -369,6 +370,9 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
         currency: "EUR",
       });
     }
+
+    // Confirmación al cliente + aviso interno; sendNewOrderEmails nunca lanza.
+    await sendNewOrderEmails(order.id);
 
     return { orderId: order.id };
   } catch (err) {

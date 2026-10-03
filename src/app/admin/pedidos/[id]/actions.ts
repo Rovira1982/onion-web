@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { archiveFile } from "@/lib/storage";
 import { setFactusolClientCode } from "@/lib/factusol";
 import { canMoveToStatus, isOrderStatus } from "@/lib/order-status";
+import { sendPaymentReceivedEmail } from "@/lib/order-emails";
 
 // Único punto de entrada para marcar un pedido como pagado — hoy no
 // cobramos online (se manda el enlace de pago por email), así que esto es
@@ -29,6 +30,7 @@ export async function marcarPedidoPagado(orderId: string): Promise<{ ok: true } 
       status: order.status === "pendiente_pago" ? "pagado" : order.status,
     },
   });
+  await sendPaymentReceivedEmail(orderId); // nunca lanza: un fallo de envío no bloquea el cobro
   return { ok: true };
 }
 
