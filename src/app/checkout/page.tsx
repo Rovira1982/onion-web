@@ -38,6 +38,8 @@ export default function CheckoutPage() {
   const [invoiceProvince, setInvoiceProvince] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [marketingEmail, setMarketingEmail] = useState(false);
+  const [marketingMeta, setMarketingMeta] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"tarjeta" | "bizum" | "transferencia">("tarjeta");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -118,6 +120,8 @@ export default function CheckoutPage() {
       invoiceProvince,
       contactEmail,
       contactPhone,
+      marketingEmailConsent: marketingEmail,
+      marketingMetaConsent: marketingMeta,
       paymentMethod,
       discountCode: discountResult?.valid ? discountCodeInput : undefined,
     });
@@ -225,6 +229,29 @@ export default function CheckoutPage() {
               />
             </label>
           </div>
+
+          <fieldset className="flex flex-col gap-2 rounded-xl border border-border p-4">
+            <legend className="px-1 font-display text-sm font-semibold text-ink">Comunicaciones (opcional)</legend>
+            <label className="flex cursor-pointer items-start gap-2 text-sm text-ink">
+              <input type="checkbox" checked={marketingEmail} onChange={(e) => setMarketingEmail(e.target.checked)} className="mt-1" />
+              Quiero recibir novedades y ofertas de Onion And Back por correo electrónico.
+            </label>
+            <label className="flex cursor-pointer items-start gap-2 text-sm text-ink">
+              <input type="checkbox" checked={marketingMeta} onChange={(e) => setMarketingMeta(e.target.checked)} className="mt-1" />
+              Acepto que mi correo electrónico se use para mostrarme publicidad personalizada de Onion And Back en Facebook e Instagram (Meta).
+            </label>
+            <p className="text-xs text-ink-soft">
+              Responsable: Josep Antoni Rovira Soler (Onion And Back), NIF 53214051D, Calle Huerto, 18, El Ràfol d&apos;Almúnia
+              (Alicante), info@onionandback.com. Finalidad: enviarte novedades y, si lo aceptas, mostrarte publicidad
+              personalizada. Base legal: tu consentimiento. Destinatarios: Meta Platforms Ireland, solo para la publicidad
+              personalizada. Puedes retirar tu consentimiento cuando quieras escribiendo a info@onionandback.com. Más
+              información en la{" "}
+              <Link href="/privacidad" className="underline hover:text-brand">
+                Política de privacidad
+              </Link>
+              .
+            </p>
+          </fieldset>
 
           <div>
             <span className="font-display text-sm font-semibold text-ink">Método de pago preferido</span>

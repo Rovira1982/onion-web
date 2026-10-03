@@ -251,6 +251,11 @@ model Order {
   // el export en bloque solo coge pedidos con esto a null, para no
   // duplicar un pedido ya mandado a FactuSol.
   factusolExportedAt DateTime?
+  // Consentimientos comerciales opcionales del checkout (casillas sin marcar por
+  // defecto). Fecha y hora si el cliente los aceptó; null = no. Sí/no y cuándo,
+  // por separado para cada casilla.
+  marketingEmailConsentAt DateTime?
+  marketingMetaConsentAt  DateTime?
   // Avisos por correo ya enviados al cliente (uno por estado, ver OrderNotification).
   notifications      OrderNotification[]
 

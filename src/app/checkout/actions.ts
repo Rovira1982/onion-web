@@ -67,6 +67,9 @@ export type CheckoutInput = {
   contactPhone: string;
   paymentMethod: "tarjeta" | "bizum" | "transferencia";
   discountCode?: string;
+  // Consentimientos comerciales (opcionales, sin marcar por defecto).
+  marketingEmailConsent?: boolean;
+  marketingMetaConsent?: boolean;
 };
 
 export type CheckoutResult = { orderId: string } | { error: string };
@@ -348,6 +351,8 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
           invoiceProvince: input.invoiceProvince,
           contactEmail: input.contactEmail,
           contactPhone: input.contactPhone || null,
+          marketingEmailConsentAt: input.marketingEmailConsent ? new Date() : null,
+          marketingMetaConsentAt: input.marketingMetaConsent ? new Date() : null,
           lines: { create: lines },
         },
       });
@@ -364,8 +369,10 @@ export async function crearPedido(input: CheckoutInput): Promise<CheckoutResult>
       void sendCapiEvent({
         eventName: "Purchase",
         eventId: order.id,
-        email: input.contactEmail,
-        phone: input.contactPhone || undefined,
+        // Correo y teléfono (cifrados) solo si aceptó la casilla de publicidad
+        // personalizada en Meta; sin ella el evento va sin datos personales.
+        email: input.marketingMetaConsent ? input.contactEmail : undefined,
+        phone: input.marketingMetaConsent ? input.contactPhone || undefined : undefined,
         value: parseFloat(order.total.toString()),
         currency: "EUR",
       });
